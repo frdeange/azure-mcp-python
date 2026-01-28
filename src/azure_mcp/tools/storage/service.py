@@ -463,13 +463,18 @@ class StorageService(AzureService):
             count = 0
 
             # Build query parameters
-            query_params = {}
-            if filter_query:
-                query_params["query_filter"] = filter_query
-            if select:
-                query_params["select"] = [s.strip() for s in select.split(",")]
+            select_list = [s.strip() for s in select.split(",")] if select else None
 
-            async for entity in client.query_entities(**query_params):
+            # Use list_entities if no filter, query_entities if filter provided
+            if filter_query:
+                entity_iter = client.query_entities(
+                    query_filter=filter_query,
+                    select=select_list,
+                )
+            else:
+                entity_iter = client.list_entities(select=select_list)
+
+            async for entity in entity_iter:
                 if count >= max_results:
                     break
 
