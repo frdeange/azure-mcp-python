@@ -42,7 +42,11 @@ dependencies = [
 http = ["uvicorn>=0.30.0", "starlette>=0.27.0"]
 
 # Azure service SDKs - install as needed
-storage = ["azure-storage-blob>=12.19.0"]
+storage = [
+    "azure-storage-blob>=12.19.0",
+    "azure-storage-queue>=12.10.0",
+    "azure-data-tables>=12.5.0",
+]
 cosmos = ["azure-cosmos>=4.5.0", "azure-mgmt-cosmosdb>=9.0.0"]
 keyvault = [
     "azure-keyvault-secrets>=4.7.0",
