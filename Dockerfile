@@ -14,8 +14,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY pyproject.toml README.md ./
 COPY src/ src/
 
-# Install package with HTTP, cosmos, cost, and storage dependencies (non-editable for production)
-RUN pip install --no-cache-dir ".[cosmos,cost,storage]" uvicorn starlette
+# Install package with all Azure service dependencies (non-editable for production)
+RUN pip install --no-cache-dir ".[cosmos,cost,storage,entra]" uvicorn starlette
 
 # Production stage
 FROM python:3.11-slim
