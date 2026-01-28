@@ -650,7 +650,11 @@ class TestCostManagementService:
             ),
             patch.dict(
                 "sys.modules",
-                {"azure.mgmt.advisor": MagicMock(AdvisorManagementClient=MagicMock(return_value=mock_client))},
+                {
+                    "azure.mgmt.advisor": MagicMock(
+                        AdvisorManagementClient=MagicMock(return_value=mock_client)
+                    )
+                },
             ),
         ):
             result = await service.list_cost_recommendations(subscription="my-sub")
