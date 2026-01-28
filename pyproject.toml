@@ -55,6 +55,7 @@ cost = [
     "azure-mgmt-costmanagement>=4.0.0",
     "azure-mgmt-consumption>=10.0.0",
     "azure-mgmt-advisor>=9.0.0",
+    "six>=1.16.0",  # Required by azure-mgmt-advisor
 ]
 entra = ["msgraph-sdk>=1.0.0"]
 

@@ -448,8 +448,9 @@ class CostManagementService(AzureService):
 
         client = CostManagementClient(credential)
 
+        result = client.exports.list(scope=scope)
         exports = []
-        for export in client.exports.list(scope=scope):
+        for export in result.value or []:
             # Get delivery info
             delivery = export.delivery_info
             destination = delivery.destination if delivery else None
