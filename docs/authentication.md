@@ -128,9 +128,85 @@ The Entra ID tools require **Microsoft Graph API permissions**. These are config
 
 ### Setting Up Graph Permissions
 
+#### Option 1: Via Azure Portal (App Registration)
+
 1. **In Azure Portal**: Go to App Registrations → Your App → API Permissions
 2. **Add Permission**: Microsoft Graph → Application permissions
 3. **Grant Admin Consent**: Required for application permissions
+
+#### Option 2: Via Azure CLI (Managed Identity)
+
+For **Managed Identities** (Container Apps, VMs, App Service), use the Azure CLI to assign Graph permissions:
+
+```bash
+# 1. Get your Managed Identity's Principal ID
+PRINCIPAL_ID=$(az containerapp show \
+  --name <your-container-app> \
+  --resource-group <your-rg> \
+  --query "identity.principalId" -o tsv)
+
+# 2. Get Microsoft Graph's Service Principal ID
+GRAPH_SP_ID=$(az ad sp list \
+  --filter "appId eq '00000003-0000-0000-c000-000000000000'" \
+  --query "[0].id" -o tsv)
+
+# 3. Assign permissions using the App Role IDs below
+az rest --method POST \
+  --uri "https://graph.microsoft.com/v1.0/servicePrincipals/${PRINCIPAL_ID}/appRoleAssignments" \
+  --headers "Content-Type=application/json" \
+  --body "{\"principalId\":\"${PRINCIPAL_ID}\",\"resourceId\":\"${GRAPH_SP_ID}\",\"appRoleId\":\"<APP_ROLE_ID>\"}"
+```
+
+### Microsoft Graph App Role IDs
+
+Use these GUIDs when assigning permissions via Azure CLI:
+
+| Permission | App Role ID |
+|------------|-------------|
+| `User.Read.All` | `df021288-bdef-4463-88db-98f22de89214` |
+| `Group.Read.All` | `5b567255-7703-4780-807c-7be8301ae99b` |
+| `GroupMember.Read.All` | `98830695-27a2-44f7-8c18-0c3ebc9698f6` |
+| `Application.Read.All` | `9a5d68dd-52b0-4cc2-bd40-abcf44ac3a30` |
+| `RoleManagement.Read.Directory` | `483bed4a-2ad3-4361-a73b-c83ccdbdc53c` |
+| `AuditLog.Read.All` | `b0afded3-3588-46d8-8b3d-9842eff778da` |
+
+#### Quick Setup Script
+
+Assign all required permissions at once:
+
+```bash
+#!/bin/bash
+PRINCIPAL_ID="<your-managed-identity-principal-id>"
+GRAPH_SP_ID="<microsoft-graph-sp-id>"
+
+# All required App Role IDs
+declare -A PERMISSIONS=(
+  ["User.Read.All"]="df021288-bdef-4463-88db-98f22de89214"
+  ["Group.Read.All"]="5b567255-7703-4780-807c-7be8301ae99b"
+  ["GroupMember.Read.All"]="98830695-27a2-44f7-8c18-0c3ebc9698f6"
+  ["Application.Read.All"]="9a5d68dd-52b0-4cc2-bd40-abcf44ac3a30"
+  ["RoleManagement.Read.Directory"]="483bed4a-2ad3-4361-a73b-c83ccdbdc53c"
+  ["AuditLog.Read.All"]="b0afded3-3588-46d8-8b3d-9842eff778da"
+)
+
+for name in "${!PERMISSIONS[@]}"; do
+  role_id="${PERMISSIONS[$name]}"
+  echo "Assigning ${name}..."
+  az rest --method POST \
+    --uri "https://graph.microsoft.com/v1.0/servicePrincipals/${PRINCIPAL_ID}/appRoleAssignments" \
+    --headers "Content-Type=application/json" \
+    --body "{\"principalId\":\"${PRINCIPAL_ID}\",\"resourceId\":\"${GRAPH_SP_ID}\",\"appRoleId\":\"${role_id}\"}" \
+    2>&1 | grep -q "already exists" && echo "  Already assigned" || echo "  Assigned"
+done
+```
+
+#### Verify Assigned Permissions
+
+```bash
+az rest --method GET \
+  --uri "https://graph.microsoft.com/v1.0/servicePrincipals/${PRINCIPAL_ID}/appRoleAssignments" \
+  --query "value[].appRoleId" -o json
+```
 
 ### License Requirements
 
