@@ -44,7 +44,7 @@ class TestCosmosAccountListOptions:
         """Test creation with minimal required fields."""
         options = CosmosAccountListOptions(subscription="my-sub")
         assert options.subscription == "my-sub"
-        assert options.resource_group is None
+        assert options.resource_group == ""  # Empty string, not None (AI Foundry compatibility)
         assert options.detail_level == "summary"
         assert options.limit == 50
 
@@ -126,7 +126,7 @@ class TestCosmosAccountListTool:
 
             mock_list.assert_called_once_with(
                 subscription="my-sub",
-                resource_group=None,
+                resource_group="",  # Empty string, not None (AI Foundry compatibility)
                 detail_level="summary",
                 limit=50,
             )
@@ -246,7 +246,7 @@ class TestCosmosItemQueryOptions:
             query="SELECT * FROM c",
         )
         assert options.query == "SELECT * FROM c"
-        assert options.parameters is None
+        assert options.parameters == []  # Empty list, not None (AI Foundry compatibility)
         assert options.max_items == 100
 
     def test_full_options(self):
@@ -306,7 +306,7 @@ class TestCosmosItemQueryTool:
                 database_name="mydb",
                 container_name="mycontainer",
                 query="SELECT * FROM c",
-                parameters=None,
+                parameters=[],  # Empty list, not None (AI Foundry compatibility)
                 max_items=100,
             )
             assert len(result) == 2

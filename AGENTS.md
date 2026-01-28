@@ -15,6 +15,24 @@ This document provides essential context for AI coding assistants working on thi
 3. **Async/await** for all Azure operations
 4. **Handle errors** with `handle_azure_error()` wrapper
 5. **Register tools** with `@register_tool("family", "subgroup")` decorator
+6. **AI Foundry compatible schemas** - NO `str | None` or `list | None` patterns (see below)
+
+## ⚠️ AI Foundry Schema Compatibility
+
+Azure AI Foundry does NOT support `anyOf`, `allOf`, or `oneOf` in JSON schemas.
+Pydantic generates these for optional types. **ALWAYS use these patterns:**
+
+```python
+# ❌ WRONG - generates anyOf, breaks AI Foundry
+resource_group: str | None = Field(default=None, description="...")
+parameters: list[dict] | None = Field(default=None, description="...")
+
+# ✅ CORRECT - simple types, AI Foundry compatible  
+resource_group: str = Field(default="", description="... Leave empty for all.")
+parameters: list[dict[str, Any]] = Field(default_factory=list, description="...")
+```
+
+See `docs/ai-foundry-deployment.md` for full details.
 
 ## Adding a Tool (Quick Reference)
 
@@ -29,9 +47,11 @@ from azure_mcp.core.registry import register_tool
 
 class MyOptions(BaseModel):
     subscription: str = Field(..., description="Subscription ID or name")
+    # Use str = "" for optional strings (NOT str | None)
+    resource_group: str = Field(default="", description="Filter by RG. Leave empty for all.")
 
 class MyService(AzureService):
-    async def do_work(self, subscription: str):
+    async def do_work(self, subscription: str, resource_group: str = ""):
         sub_id = await self.resolve_subscription(subscription)
         return await self.list_resources("Microsoft.Type/resources", sub_id)
 
@@ -48,7 +68,7 @@ class MyTool(AzureTool):
     
     async def execute(self, options):
         try:
-            return await MyService().do_work(options.subscription)
+            return await MyService().do_work(options.subscription, options.resource_group)
         except Exception as e:
             raise handle_azure_error(e)
 ```
@@ -70,6 +90,7 @@ class MyTool(AzureTool):
 - `src/azure_mcp/core/base.py` - Base classes
 - `src/azure_mcp/core/registry.py` - Tool registration
 - `docs/adding-tools.md` - Detailed guide
+- `docs/ai-foundry-deployment.md` - AI Foundry deployment & schema guide
 - `.github/copilot-instructions.md` - Full agent instructions
 - `.github/ISSUES.md` - All 59 planned issues
 
@@ -78,3 +99,5 @@ class MyTool(AzureTool):
 - Import new tool modules in `tools/__init__.py`
 - Add tests in `tests/unit/tools/`
 - Use `ToolMetadata(read_only=False, requires_confirmation=True)` for write ops
+- **Use `str = ""` NOT `str | None`** for optional fields (AI Foundry compatibility)
+- Run `pytest tests/unit/test_schema_compatibility.py` to verify schemas

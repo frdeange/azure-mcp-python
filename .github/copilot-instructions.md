@@ -88,12 +88,14 @@ class MyToolOptions(BaseModel):
     """Pydantic model for tool parameters."""
     param1: str = Field(..., description="Required parameter")
     param2: int = Field(default=50, ge=1, le=100, description="Optional with constraints")
+    # For optional strings, use empty default (NOT str | None) for AI Foundry compatibility
+    optional_filter: str = Field(default="", description="Filter value. Leave empty for all.")
 
 
 class MyService(AzureService):
     """Service class for Azure operations."""
     
-    async def do_operation(self, param1: str, param2: int) -> dict:
+    async def do_operation(self, param1: str, param2: int, optional_filter: str = "") -> dict:
         # Use self.get_credential() for auth
         # Use self.resolve_subscription() for sub name→ID
         # Use self.list_resources() for Resource Graph queries
@@ -130,10 +132,13 @@ class MyTool(AzureTool):
             return await service.do_operation(
                 param1=options.param1,
                 param2=options.param2,
+                optional_filter=options.optional_filter,
             )
         except Exception as e:
             raise handle_azure_error(e, resource="MyResource")
 ```
+
+**⚠️ AI Foundry Schema Compatibility**: Never use `str | None` or `list | None` - these generate `anyOf` schemas that AI Foundry rejects. Use `str = ""` and `list = Field(default_factory=list)` instead. See `docs/ai-foundry-deployment.md`.
 
 ### 2. Naming Conventions
 

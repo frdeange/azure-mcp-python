@@ -42,9 +42,9 @@ class CosmosAccountListOptions(BaseModel):
         ...,
         description="Azure subscription ID or display name to query.",
     )
-    resource_group: str | None = Field(
-        default=None,
-        description="Optional resource group name to filter accounts.",
+    resource_group: str = Field(
+        default="",
+        description="Resource group name to filter accounts. Leave empty for all resource groups.",
     )
     detail_level: Literal["summary", "full"] = Field(
         default="summary",
@@ -68,7 +68,7 @@ class CosmosAccountService(AzureService):
     async def list_accounts(
         self,
         subscription: str,
-        resource_group: str | None = None,
+        resource_group: str = "",
         detail_level: str = "summary",
         limit: int = 50,
     ) -> list[dict[str, Any]]:

@@ -51,12 +51,13 @@ class CosmosItemQueryOptions(BaseModel):
             "Use parameterized queries with @param placeholders for safety."
         ),
     )
-    parameters: list[dict[str, Any]] | None = Field(
-        default=None,
+    parameters: list[dict[str, Any]] = Field(
+        default_factory=list,
         description=(
             "Query parameters as a list of objects with 'name' and 'value' keys "
             "(e.g., [{'name': '@status', 'value': 'active'}]). "
-            "Use parameters instead of string concatenation for safety."
+            "Use parameters instead of string concatenation for safety. "
+            "Pass empty list [] if no parameters needed."
         ),
     )
     max_items: int = Field(

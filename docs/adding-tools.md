@@ -38,9 +38,9 @@ class StorageAccountListOptions(BaseModel):
         ...,
         description="Azure subscription ID or name"
     )
-    resource_group: str | None = Field(
-        default=None,
-        description="Optional resource group to filter by"
+    resource_group: str = Field(
+        default="",
+        description="Resource group to filter by. Leave empty for all."
     )
     limit: int = Field(
         default=50,
@@ -56,7 +56,7 @@ class StorageAccountService(AzureService):
     async def list_accounts(
         self,
         subscription: str,
-        resource_group: str | None = None,
+        resource_group: str = "",
         limit: int = 50,
     ) -> list[dict[str, Any]]:
         """List storage accounts using Resource Graph."""
@@ -269,6 +269,38 @@ print(error.to_dict())
 # }
 ```
 
+## AI Foundry Schema Compatibility
+
+**⚠️ CRITICAL**: Azure AI Foundry does NOT support `anyOf`, `allOf`, or `oneOf` in JSON schemas.
+
+Pydantic 2 generates `anyOf` for optional types (`str | None`). This causes `"Invalid tool schema"` errors.
+
+### ❌ WRONG - Generates incompatible schema
+
+```python
+class MyOptions(BaseModel):
+    resource_group: str | None = Field(default=None, description="...")
+    parameters: list[dict] | None = Field(default=None, description="...")
+```
+
+### ✅ CORRECT - AI Foundry compatible
+
+```python
+class MyOptions(BaseModel):
+    resource_group: str = Field(
+        default="",
+        description="Resource group to filter. Leave empty for all."
+    )
+    parameters: list[dict[str, Any]] = Field(
+        default_factory=list,
+        description="Query parameters. Pass empty list if none needed."
+    )
+```
+
+Empty values (`""` and `[]`) are falsy in Python, so existing `if value:` checks work unchanged.
+
+**See [AI Foundry Deployment Guide](ai-foundry-deployment.md) for full details.**
+
 ## Best Practices
 
 1. **Keep tools focused** - One tool = one action
@@ -276,3 +308,4 @@ print(error.to_dict())
 3. **Document thoroughly** - Descriptions help the LLM understand when to use each tool
 4. **Validate inputs** - Use Pydantic constraints (`ge`, `le`, `min_length`, etc.)
 5. **Add tests** - Every tool needs unit tests
+6. **Avoid Optional types** - Use empty defaults for AI Foundry compatibility

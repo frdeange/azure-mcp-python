@@ -84,3 +84,5 @@ Thumbs.db
 # Project specific
 *.local
 .azure/
+
+Refered_MCP_Server_OLD/

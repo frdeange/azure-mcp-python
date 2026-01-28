@@ -190,6 +190,61 @@ mock_resource = {
 mock_resource = {"name": "acc"}
 ```
 
+## AI Foundry Schema Compatibility Testing
+
+The project includes automated tests to ensure tool schemas are compatible with Azure AI Foundry.
+
+### Schema Validation Test
+
+The `tests/unit/test_schema_compatibility.py` file validates that all tool schemas:
+
+- Do NOT contain `anyOf` patterns (breaks AI Foundry)
+- Do NOT contain `allOf` patterns (breaks AI Foundry)
+- Do NOT contain `oneOf` patterns (breaks AI Foundry)
+
+This test runs automatically in CI and will fail if any tool uses incompatible patterns.
+
+### Testing Tools with Optional Fields
+
+When testing tools that have optional fields, remember they use empty values instead of `None`:
+
+```python
+# For optional string fields (default="")
+options = MyToolOptions(
+    subscription="test-sub",
+    resource_group="",  # Empty string, NOT None
+)
+
+# For optional list fields (default_factory=list)
+options = QueryOptions(
+    query="SELECT * FROM c",
+    parameters=[],  # Empty list, NOT None
+)
+```
+
+### Verifying Schema Compatibility
+
+To check if a tool's schema is AI Foundry compatible:
+
+```python
+def test_my_tool_schema_compatible():
+    tool = MyTool()
+    schema = tool.options_model.model_json_schema()
+    
+    # Recursively check for forbidden patterns
+    def check_no_anyof(obj: dict) -> bool:
+        if "anyOf" in obj or "allOf" in obj or "oneOf" in obj:
+            return False
+        for value in obj.values():
+            if isinstance(value, dict) and not check_no_anyof(value):
+                return False
+        return True
+    
+    assert check_no_anyof(schema), "Schema contains anyOf/allOf/oneOf"
+```
+
+See [AI Foundry Deployment Guide](ai-foundry-deployment.md) for more details on schema requirements.
+
 ## Coverage Goals
 
 - **Core modules**: 90%+ coverage
