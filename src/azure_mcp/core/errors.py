@@ -5,8 +5,6 @@ Provides unified error types and Azure SDK error mapping.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
-from http import HTTPStatus
 from typing import Any
 
 from azure.core.exceptions import (
@@ -17,13 +15,19 @@ from azure.core.exceptions import (
 )
 
 
-@dataclass
 class ToolError(Exception):
     """Base error for tool operations."""
 
-    message: str
-    status: HTTPStatus = HTTPStatus.INTERNAL_SERVER_ERROR
-    details: dict[str, Any] | None = None
+    def __init__(
+        self,
+        message: str,
+        code: str | None = None,
+        details: dict[str, Any] | None = None,
+    ) -> None:
+        super().__init__(message)
+        self.message = message
+        self.code = code
+        self.details = details
 
     def __str__(self) -> str:
         return self.message
@@ -31,69 +35,183 @@ class ToolError(Exception):
     def to_dict(self) -> dict[str, Any]:
         """Convert error to dictionary for JSON serialization."""
         result: dict[str, Any] = {
-            "error": True,
-            "status": self.status.value,
+            "error": self.__class__.__name__,
             "message": self.message,
         }
+        if self.code:
+            result["code"] = self.code
         if self.details:
             result["details"] = self.details
         return result
 
 
-@dataclass
 class ValidationError(ToolError):
     """Input validation failed."""
 
-    message: str
-    status: HTTPStatus = field(default=HTTPStatus.BAD_REQUEST)
-    details: dict[str, Any] | None = None
-    missing_fields: list[str] | None = None
+    def __init__(
+        self,
+        message: str,
+        field: str | None = None,
+        code: str | None = None,
+        details: dict[str, Any] | None = None,
+    ) -> None:
+        super().__init__(message, code=code, details=details)
+        self.field = field
 
-    def __post_init__(self) -> None:
-        if self.missing_fields:
-            self.details = self.details or {}
-            self.details["missing_fields"] = self.missing_fields
+    def to_dict(self) -> dict[str, Any]:
+        result = super().to_dict()
+        if self.field:
+            result["field"] = self.field
+        return result
 
 
-@dataclass
 class NotFoundError(ToolError):
     """Resource not found."""
 
-    message: str
-    status: HTTPStatus = field(default=HTTPStatus.NOT_FOUND)
-    details: dict[str, Any] | None = None
+    def __init__(
+        self,
+        message: str,
+        resource: str | None = None,
+        code: str | None = None,
+        details: dict[str, Any] | None = None,
+    ) -> None:
+        super().__init__(message, code=code, details=details)
+        self.resource = resource
 
 
-@dataclass
 class AuthenticationError(ToolError):
     """Authentication failed."""
 
-    message: str
-    status: HTTPStatus = field(default=HTTPStatus.UNAUTHORIZED)
-    details: dict[str, Any] | None = None
+    def __init__(
+        self,
+        message: str,
+        code: str | None = None,
+        details: dict[str, Any] | None = None,
+    ) -> None:
+        super().__init__(message, code=code, details=details)
 
 
-@dataclass
-class PermissionError(ToolError):
-    """Permission denied."""
+class AuthorizationError(ToolError):
+    """Permission denied / authorization failed."""
 
-    message: str
-    status: HTTPStatus = field(default=HTTPStatus.FORBIDDEN)
-    details: dict[str, Any] | None = None
+    def __init__(
+        self,
+        message: str,
+        permission: str | None = None,
+        code: str | None = None,
+        details: dict[str, Any] | None = None,
+    ) -> None:
+        super().__init__(message, code=code, details=details)
+        self.permission = permission
+
+    def to_dict(self) -> dict[str, Any]:
+        result = super().to_dict()
+        if self.permission:
+            result["permission"] = self.permission
+        return result
 
 
-def handle_azure_error(error: Exception) -> ToolError:
+class AzureResourceError(ToolError):
+    """Azure resource operation failed."""
+
+    def __init__(
+        self,
+        message: str,
+        resource_type: str | None = None,
+        resource_name: str | None = None,
+        code: str | None = None,
+        details: dict[str, Any] | None = None,
+    ) -> None:
+        super().__init__(message, code=code, details=details)
+        self.resource_type = resource_type
+        self.resource_name = resource_name
+
+    def to_dict(self) -> dict[str, Any]:
+        result = super().to_dict()
+        if self.resource_type:
+            result["resource_type"] = self.resource_type
+        if self.resource_name:
+            result["resource_name"] = self.resource_name
+        return result
+
+
+class NetworkError(ToolError):
+    """Network/connection error."""
+
+    def __init__(
+        self,
+        message: str,
+        endpoint: str | None = None,
+        code: str | None = None,
+        details: dict[str, Any] | None = None,
+    ) -> None:
+        super().__init__(message, code=code, details=details)
+        self.endpoint = endpoint
+
+    def to_dict(self) -> dict[str, Any]:
+        result = super().to_dict()
+        if self.endpoint:
+            result["endpoint"] = self.endpoint
+        return result
+
+
+class RateLimitError(ToolError):
+    """Rate limit exceeded."""
+
+    def __init__(
+        self,
+        message: str,
+        retry_after: int | None = None,
+        code: str | None = None,
+        details: dict[str, Any] | None = None,
+    ) -> None:
+        super().__init__(message, code=code, details=details)
+        self.retry_after = retry_after
+
+    def to_dict(self) -> dict[str, Any]:
+        result = super().to_dict()
+        if self.retry_after:
+            result["retry_after"] = self.retry_after
+        return result
+
+
+class ConfigurationError(ToolError):
+    """Configuration error."""
+
+    def __init__(
+        self,
+        message: str,
+        setting: str | None = None,
+        code: str | None = None,
+        details: dict[str, Any] | None = None,
+    ) -> None:
+        super().__init__(message, code=code, details=details)
+        self.setting = setting
+
+
+def handle_azure_error(
+    error: Exception,
+    resource: str | None = None,
+) -> ToolError:
     """
     Convert Azure SDK errors to ToolError.
 
     Args:
         error: An exception from Azure SDK.
+        resource: Optional resource context for error message.
 
     Returns:
         A ToolError with appropriate status code and message.
     """
+    # Pass through existing ToolErrors
+    if isinstance(error, ToolError):
+        return error
+
     if isinstance(error, ResourceNotFoundError):
-        return NotFoundError(message=str(error))
+        msg = str(error)
+        if resource:
+            msg = f"{resource}: {msg}"
+        return NotFoundError(message=msg)
 
     if isinstance(error, ClientAuthenticationError):
         return AuthenticationError(
@@ -101,24 +219,34 @@ def handle_azure_error(error: Exception) -> ToolError:
         )
 
     if isinstance(error, HttpResponseError):
-        status = HTTPStatus.INTERNAL_SERVER_ERROR
-        if error.status_code:
-            try:
-                status = HTTPStatus(error.status_code)
-            except ValueError:
-                pass
+        msg = str(error)
+        if resource:
+            msg = f"{resource}: {msg}"
+
+        # Map specific status codes
+        if error.status_code == 403:
+            return AuthorizationError(message=msg)
+        if error.status_code == 429:
+            retry_after = None
+            if hasattr(error, "headers") and error.headers:
+                retry_after = error.headers.get("Retry-After")
+                if retry_after:
+                    try:
+                        retry_after = int(retry_after)
+                    except ValueError:
+                        retry_after = None
+            return RateLimitError(message=msg, retry_after=retry_after)
 
         return ToolError(
-            message=str(error),
-            status=status,
+            message=msg,
             details={"azure_error": error.error.code if error.error else None},
         )
 
     if isinstance(error, ServiceRequestError):
-        return ToolError(
-            message=f"Azure service unavailable: {error}",
-            status=HTTPStatus.SERVICE_UNAVAILABLE,
-        )
+        return NetworkError(message=f"Azure service unavailable: {error}")
 
-    # Unknown error
-    return ToolError(message=str(error))
+    # Unknown error - include resource context if provided
+    msg = str(error)
+    if resource:
+        msg = f"{resource}: {msg}"
+    return ToolError(message=msg)

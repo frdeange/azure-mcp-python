@@ -106,7 +106,7 @@ class StorageAccountListTool(AzureTool):
                 limit=options.limit,
             )
         except Exception as e:
-            raise handle_azure_error(e, resource="Storage Account")
+            raise handle_azure_error(e, resource="Storage Account") from e
 ```
 
 ### 2. Register in Package Init
@@ -192,10 +192,82 @@ Always wrap service calls with `handle_azure_error`:
 try:
     result = await service.do_operation()
 except Exception as e:
-    raise handle_azure_error(e, resource="Resource Name")
+    raise handle_azure_error(e, resource="Resource Name") from e
 ```
 
-This ensures consistent error formatting and proper error type detection.
+**Important**: Use `from e` to preserve the exception chain for debugging.
+
+### Available Error Types
+
+The `azure_mcp.core.errors` module provides these error classes:
+
+| Error Class | Use Case | Key Attributes |
+|-------------|----------|----------------|
+| `ToolError` | Base class for all errors | `message`, `code`, `details` |
+| `ValidationError` | Invalid input parameters | `field` |
+| `NotFoundError` | Resource not found (404) | `resource` |
+| `AuthenticationError` | Auth failures (401) | - |
+| `AuthorizationError` | Permission denied (403) | `permission` |
+| `AzureResourceError` | Azure resource operations | `resource_type`, `resource_name` |
+| `NetworkError` | Connection issues | `endpoint` |
+| `RateLimitError` | Throttling (429) | `retry_after` |
+| `ConfigurationError` | Config problems | `setting` |
+
+### Creating Errors Manually
+
+When you need to raise specific errors:
+
+```python
+from azure_mcp.core.errors import (
+    ValidationError,
+    NotFoundError,
+    AuthorizationError,
+    AzureResourceError,
+)
+
+# Validation error with field context
+raise ValidationError("Invalid format", field="container_name")
+
+# Resource not found
+raise NotFoundError("Database not found", resource="mydb")
+
+# Permission denied with context
+raise AuthorizationError("Access denied", permission="read")
+
+# Azure resource operation failed
+raise AzureResourceError(
+    "Operation failed",
+    resource_type="Microsoft.DocumentDB/databaseAccounts",
+    resource_name="myaccount",
+)
+```
+
+### Automatic Azure SDK Error Mapping
+
+`handle_azure_error()` automatically converts Azure SDK exceptions:
+
+| Azure SDK Exception | Mapped To |
+|---------------------|-----------|
+| `ResourceNotFoundError` | `NotFoundError` |
+| `ClientAuthenticationError` | `AuthenticationError` |
+| `HttpResponseError` (403) | `AuthorizationError` |
+| `HttpResponseError` (429) | `RateLimitError` |
+| `ServiceRequestError` | `NetworkError` |
+| Other exceptions | `ToolError` |
+
+### Error Serialization
+
+All errors support `to_dict()` for JSON serialization:
+
+```python
+error = ValidationError("Invalid input", field="query")
+print(error.to_dict())
+# {
+#     "error": "ValidationError",
+#     "message": "Invalid input",
+#     "field": "query"
+# }
+```
 
 ## Best Practices
 
