@@ -140,10 +140,10 @@ class CosmosItemGetOptions(BaseModel):
         ...,
         description="The unique ID of the item to retrieve.",
     )
-    partition_key: Any = Field(
+    partition_key: str = Field(
         ...,
         description=(
-            "The partition key value for the item. "
+            "The partition key value for the item (as a string). "
             "Check cosmos_container_list for the container's partition key path."
         ),
     )
@@ -294,9 +294,9 @@ class CosmosItemDeleteOptions(BaseModel):
         ...,
         description="The unique ID of the item to delete.",
     )
-    partition_key: Any = Field(
+    partition_key: str = Field(
         ...,
-        description=("The partition key value for the item. Required for efficient deletion."),
+        description="The partition key value for the item (as a string). Required for efficient deletion.",
     )
 
 
