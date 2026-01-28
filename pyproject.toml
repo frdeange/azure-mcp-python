@@ -1,0 +1,118 @@
+[project]
+name = "azure-mcp"
+version = "0.1.0"
+description = "Azure MCP Server - Model Context Protocol tools for Azure services"
+readme = "README.md"
+license = { text = "MIT" }
+requires-python = ">=3.11"
+authors = [
+    { name = "Your Team", email = "team@example.com" }
+]
+keywords = ["azure", "mcp", "ai", "llm", "copilot", "model-context-protocol"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
+
+dependencies = [
+    # MCP Protocol
+    "mcp>=1.0.0",
+    
+    # Azure Core
+    "azure-identity>=1.15.0",
+    "azure-core>=1.30.0",
+    "azure-mgmt-resource>=23.0.0",
+    "azure-mgmt-resourcegraph>=8.0.0",
+    
+    # Framework
+    "pydantic>=2.5.0",
+    "pydantic-settings>=2.1.0",
+    
+    # Utilities
+    "structlog>=24.0.0",
+    "cachetools>=5.3.0",
+]
+
+[project.optional-dependencies]
+# Azure service SDKs - install as needed
+storage = ["azure-storage-blob>=12.19.0"]
+cosmos = ["azure-cosmos>=4.5.0", "azure-mgmt-cosmosdb>=9.0.0"]
+keyvault = [
+    "azure-keyvault-secrets>=4.7.0",
+    "azure-keyvault-keys>=4.8.0",
+    "azure-keyvault-certificates>=4.7.0",
+]
+sql = ["azure-mgmt-sql>=4.0.0"]
+monitor = ["azure-monitor-query>=1.2.0", "azure-mgmt-monitor>=6.0.0"]
+cost = ["azure-mgmt-costmanagement>=4.0.0"]
+entra = ["msgraph-sdk>=1.0.0"]
+
+# All Azure services
+all = [
+    "azure-mcp[storage,cosmos,keyvault,sql,monitor,cost,entra]",
+]
+
+# Development
+dev = [
+    "pytest>=8.0.0",
+    "pytest-asyncio>=0.23.0",
+    "pytest-cov>=4.1.0",
+    "ruff>=0.3.0",
+    "mypy>=1.8.0",
+    "pre-commit>=3.6.0",
+]
+
+# Documentation
+docs = [
+    "mkdocs>=1.5.0",
+    "mkdocs-material>=9.5.0",
+    "mkdocstrings[python]>=0.24.0",
+]
+
+[project.scripts]
+azure-mcp = "azure_mcp.server:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/azure_mcp"]
+
+[tool.ruff]
+target-version = "py311"
+line-length = 100
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM", "ASYNC"]
+ignore = ["E501"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["azure_mcp"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+addopts = "-v --tb=short"
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+warn_return_any = true
+warn_unused_ignores = true
+
+[tool.coverage.run]
+source = ["src/azure_mcp"]
+branch = true
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "if TYPE_CHECKING:",
+    "raise NotImplementedError",
+]
