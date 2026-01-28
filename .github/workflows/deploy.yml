@@ -1,0 +1,72 @@
+# Azure Container Apps Deployment Workflow
+# 
+# This workflow builds and deploys the Docker image to Azure Container Apps
+# on every push to the main branch.
+#
+# Authentication Strategy (Hybrid - No passwords needed!):
+#   - GitHub → Azure: Service Principal with AZURE_CREDENTIALS secret
+#   - GitHub → ACR:   Same SP with AcrPush role (uses `az acr login`)
+#   - ACA → ACR:      System-Assigned Managed Identity with AcrPull role
+#
+# Required GitHub Secrets:
+#   - AZURE_CREDENTIALS: Service Principal JSON for Azure login
+#     Generate with: az ad sp create-for-rbac --name "github-azure-mcp" \
+#                    --role contributor \
+#                    --scopes /subscriptions/{sub-id}/resourceGroups/RG-DistriAgentPlatform \
+#                    --sdk-auth
+#
+# Azure Configuration (already done):
+#   - SP has AcrPush role on ACR
+#   - ACA has System-Assigned Managed Identity with AcrPull role on ACR
+#
+# TODO: In the future, this workflow should depend on ci.yml tests passing
+#       before deploying. Currently deploys regardless of test results.
+#       See issue #75 for tracking.
+
+name: Deploy to Azure Container Apps
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:  # Allow manual trigger
+
+env:
+  REGISTRY: distriplatformacr
+  IMAGE_NAME: azure-mcp-python
+  RESOURCE_GROUP: RG-DistriAgentPlatform
+  CONTAINER_APP_NAME: azure-mcp-python
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Azure Login
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Login to Azure Container Registry
+        run: az acr login --name ${{ env.REGISTRY }}
+
+      - name: Build Docker image
+        run: |
+          docker build \
+            -t ${{ env.REGISTRY }}.azurecr.io/${{ env.IMAGE_NAME }}:${{ github.sha }} \
+            -t ${{ env.REGISTRY }}.azurecr.io/${{ env.IMAGE_NAME }}:latest \
+            .
+
+      - name: Push Docker image to ACR
+        run: |
+          docker push ${{ env.REGISTRY }}.azurecr.io/${{ env.IMAGE_NAME }}:${{ github.sha }}
+          docker push ${{ env.REGISTRY }}.azurecr.io/${{ env.IMAGE_NAME }}:latest
+
+      - name: Deploy to Azure Container Apps
+        uses: azure/container-apps-deploy-action@v2
+        with:
+          resourceGroup: ${{ env.RESOURCE_GROUP }}
+          containerAppName: ${{ env.CONTAINER_APP_NAME }}
+          imageToDeploy: ${{ env.REGISTRY }}.azurecr.io/${{ env.IMAGE_NAME }}:${{ github.sha }}
