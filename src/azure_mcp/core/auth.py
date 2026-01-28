@@ -25,10 +25,14 @@ class CredentialProvider:
     """
     Provides Azure credentials with automatic fallback chain.
 
-    Respects AZURE_TOKEN_CREDENTIALS environment variable:
-    - "dev": Development credentials (CLI, VS Code)
-    - "prod": Production credentials (Managed Identity, Environment)
-    - Not set: Development chain (default)
+    The credential chain tries each authentication method in order:
+    1. EnvironmentCredential - Service principal via env vars
+    2. ManagedIdentityCredential - Azure Managed Identity (Container Apps, VMs, etc.)
+    3. VisualStudioCodeCredential - VS Code Azure extension
+    4. AzureCliCredential - Azure CLI (az login)
+
+    This works seamlessly in both development (CLI, VS Code) and production
+    (Managed Identity, Container Apps) environments.
 
     Credentials are cached per tenant to avoid repeated auth flows.
     """
@@ -55,32 +59,7 @@ class CredentialProvider:
 
     @classmethod
     def _create_credential(cls, tenant_id: str | None = None) -> TokenCredential:
-        """Create a new credential chain based on environment configuration."""
-        mode = os.environ.get("AZURE_TOKEN_CREDENTIALS", "dev").lower()
-
-        if mode == "prod":
-            return cls._create_production_chain(tenant_id)
-        else:
-            return cls._create_development_chain(tenant_id)
-
-    @classmethod
-    def _create_development_chain(cls, tenant_id: str | None = None) -> TokenCredential:
-        """Create credential chain for development environments."""
-        kwargs: dict[str, str] = {}
-        if tenant_id:
-            kwargs["tenant_id"] = tenant_id
-
-        credentials: list[TokenCredential] = [
-            EnvironmentCredential(**kwargs),
-            VisualStudioCodeCredential(**kwargs),
-            AzureCliCredential(**kwargs),
-        ]
-
-        return ChainedTokenCredential(*credentials)
-
-    @classmethod
-    def _create_production_chain(cls, tenant_id: str | None = None) -> TokenCredential:
-        """Create credential chain for production environments."""
+        """Create a unified credential chain that works in all environments."""
         kwargs: dict[str, str] = {}
         if tenant_id:
             kwargs["tenant_id"] = tenant_id
@@ -91,9 +70,13 @@ class CredentialProvider:
         if client_id:
             mi_kwargs["client_id"] = client_id
 
+        # Unified chain: works in both dev and production
+        # Order matters: faster/more specific credentials first
         credentials: list[TokenCredential] = [
-            EnvironmentCredential(**kwargs),
-            ManagedIdentityCredential(**mi_kwargs),
+            EnvironmentCredential(**kwargs),           # Service principal (CI/CD, explicit config)
+            ManagedIdentityCredential(**mi_kwargs),    # Azure Managed Identity (Container Apps, VMs)
+            VisualStudioCodeCredential(**kwargs),      # VS Code (development)
+            AzureCliCredential(**kwargs),              # Azure CLI (development)
         ]
 
         return ChainedTokenCredential(*credentials)
