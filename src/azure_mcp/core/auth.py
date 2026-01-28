@@ -73,10 +73,10 @@ class CredentialProvider:
         # Unified chain: works in both dev and production
         # Order matters: faster/more specific credentials first
         credentials: list[TokenCredential] = [
-            EnvironmentCredential(**kwargs),           # Service principal (CI/CD, explicit config)
-            ManagedIdentityCredential(**mi_kwargs),    # Azure Managed Identity (Container Apps, VMs)
-            VisualStudioCodeCredential(**kwargs),      # VS Code (development)
-            AzureCliCredential(**kwargs),              # Azure CLI (development)
+            EnvironmentCredential(**kwargs),  # Service principal (CI/CD, explicit config)
+            ManagedIdentityCredential(**mi_kwargs),  # Azure Managed Identity (Container Apps, VMs)
+            VisualStudioCodeCredential(**kwargs),  # VS Code (development)
+            AzureCliCredential(**kwargs),  # Azure CLI (development)
         ]
 
         return ChainedTokenCredential(*credentials)

@@ -78,7 +78,5 @@ def mock_resourcegraph_client(mock_credential):
 @pytest.fixture
 def patch_credential(mock_credential):
     """Patch credential provider to return mock credential."""
-    with patch.object(
-        CredentialProvider, "get_credential", return_value=mock_credential
-    ):
+    with patch.object(CredentialProvider, "get_credential", return_value=mock_credential):
         yield mock_credential

@@ -29,14 +29,15 @@ class TestCredentialProvider:
 
     def test_get_credential_includes_managed_identity(self):
         """Test that credential chain includes ManagedIdentityCredential."""
-        with patch("azure_mcp.core.auth.ManagedIdentityCredential") as mi_mock, \
-             patch("azure_mcp.core.auth.EnvironmentCredential"), \
-             patch("azure_mcp.core.auth.VisualStudioCodeCredential"), \
-             patch("azure_mcp.core.auth.AzureCliCredential"), \
-             patch("azure_mcp.core.auth.ChainedTokenCredential") as chain_mock:
-            
+        with (
+            patch("azure_mcp.core.auth.ManagedIdentityCredential") as mi_mock,
+            patch("azure_mcp.core.auth.EnvironmentCredential"),
+            patch("azure_mcp.core.auth.VisualStudioCodeCredential"),
+            patch("azure_mcp.core.auth.AzureCliCredential"),
+            patch("azure_mcp.core.auth.ChainedTokenCredential") as chain_mock,
+        ):
             CredentialProvider.get_credential()
-            
+
             # ManagedIdentityCredential should be instantiated
             mi_mock.assert_called_once()
             # ChainedTokenCredential should receive 4 credentials
@@ -46,12 +47,13 @@ class TestCredentialProvider:
 
     def test_get_credential_with_tenant(self):
         """Test credential with explicit tenant."""
-        with patch("azure_mcp.core.auth.EnvironmentCredential") as env_mock, \
-             patch("azure_mcp.core.auth.ManagedIdentityCredential"), \
-             patch("azure_mcp.core.auth.VisualStudioCodeCredential") as vsc_mock, \
-             patch("azure_mcp.core.auth.AzureCliCredential") as cli_mock, \
-             patch("azure_mcp.core.auth.ChainedTokenCredential"):
-
+        with (
+            patch("azure_mcp.core.auth.EnvironmentCredential") as env_mock,
+            patch("azure_mcp.core.auth.ManagedIdentityCredential"),
+            patch("azure_mcp.core.auth.VisualStudioCodeCredential") as vsc_mock,
+            patch("azure_mcp.core.auth.AzureCliCredential") as cli_mock,
+            patch("azure_mcp.core.auth.ChainedTokenCredential"),
+        ):
             CredentialProvider.get_credential(tenant_id="test-tenant")
 
             # Tenant-aware credentials should receive tenant_id
@@ -87,13 +89,14 @@ class TestCredentialProvider:
 
     def test_user_assigned_identity_uses_client_id(self):
         """Test that AZURE_CLIENT_ID env var is used for user-assigned identity."""
-        with patch.dict("os.environ", {"AZURE_CLIENT_ID": "my-client-id"}), \
-             patch("azure_mcp.core.auth.ManagedIdentityCredential") as mi_mock, \
-             patch("azure_mcp.core.auth.EnvironmentCredential"), \
-             patch("azure_mcp.core.auth.VisualStudioCodeCredential"), \
-             patch("azure_mcp.core.auth.AzureCliCredential"), \
-             patch("azure_mcp.core.auth.ChainedTokenCredential"):
-
+        with (
+            patch.dict("os.environ", {"AZURE_CLIENT_ID": "my-client-id"}),
+            patch("azure_mcp.core.auth.ManagedIdentityCredential") as mi_mock,
+            patch("azure_mcp.core.auth.EnvironmentCredential"),
+            patch("azure_mcp.core.auth.VisualStudioCodeCredential"),
+            patch("azure_mcp.core.auth.AzureCliCredential"),
+            patch("azure_mcp.core.auth.ChainedTokenCredential"),
+        ):
             CredentialProvider.get_credential()
 
             mi_mock.assert_called_once_with(client_id="my-client-id")
