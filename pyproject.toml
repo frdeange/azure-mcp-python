@@ -20,7 +20,7 @@ classifiers = [
 
 dependencies = [
     # MCP Protocol
-    "mcp>=1.0.0",
+    "fastmcp>=2.14.0",
     
     # Azure Core
     "azure-identity>=1.15.0",
