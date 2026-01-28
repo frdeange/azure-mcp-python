@@ -124,14 +124,14 @@ public static class AzureExceptionHandler
 
 ## Python MCP SDK Research
 
-### Official SDK: `mcp`
+### Official SDK: `fastmcp`
 
 ```python
 # Installation
-pip install mcp
+pip install fastmcp
 
 # Basic usage
-from mcp.server.fastmcp import FastMCP
+from fastmcp import FastMCP
 
 mcp = FastMCP("My Server")
 
@@ -149,7 +149,8 @@ mcp.run()
 2. **Pydantic Integration** - Automatic schema generation
 3. **Async Support** - Native async/await
 4. **Type Hints** - Full typing support
-5. **Protocol Compliance** - MCP 2024-11-05
+5. **HTTP Transport** - `http_app(stateless_http=True)` for AI Foundry
+6. **Protocol Compliance** - MCP 2024-11-05
 
 ### Schema Generation
 
@@ -169,18 +170,13 @@ schema = MyOptions.model_json_schema()
 ### Authentication
 
 ```python
-from azure.identity import DefaultAzureCredential, AzureCliCredential
+from azure_mcp.core.auth import CredentialProvider
 
-# Production
-credential = DefaultAzureCredential()
+# Unified chain - works in dev and production
+credential = CredentialProvider.get_credential()
 
-# Development
-credential = AzureCliCredential()
-
-# Multi-tenant
-credential = DefaultAzureCredential(
-    additionally_allowed_tenants=["*"]
-)
+# With tenant
+credential = CredentialProvider.get_credential(tenant_id="my-tenant")
 ```
 
 ### Resource Graph
@@ -225,9 +221,9 @@ result = client.query.usage(
 
 ```python
 from msgraph import GraphServiceClient
-from azure.identity import DefaultAzureCredential
+from azure_mcp.core.auth import CredentialProvider
 
-credential = DefaultAzureCredential()
+credential = CredentialProvider.get_credential()
 scopes = ["https://graph.microsoft.com/.default"]
 
 client = GraphServiceClient(credentials=credential, scopes=scopes)

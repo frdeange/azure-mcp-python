@@ -301,6 +301,34 @@ Empty values (`""` and `[]`) are falsy in Python, so existing `if value:` checks
 
 **See [AI Foundry Deployment Guide](ai-foundry-deployment.md) for full details.**
 
+## How Tools Are Registered (Behind the Scenes)
+
+When you create a tool following the patterns above, the server automatically:
+
+1. **Imports your tool** via `tools/__init__.py`
+2. **Registers it** using the `@register_tool` decorator
+3. **Generates a flat JSON schema** for AI Foundry compatibility
+
+### Schema Flattening
+
+The server uses `fastmcp` with dynamic handler generation to produce flat schemas without `$ref` or `$defs`. This is handled automatically in `server.py`:
+
+```python
+# Your Pydantic model (with proper patterns)
+class MyOptions(BaseModel):
+    subscription: str = Field(..., description="Subscription ID")
+    resource_group: str = Field(default="", description="RG filter")
+
+# Server automatically generates a flat handler like:
+async def handler(
+    subscription: Annotated[str, "Subscription ID"],
+    resource_group: Annotated[str, "RG filter"] = ""
+) -> Any:
+    ...
+```
+
+**You don't need to understand this** - just follow the patterns in this guide and the server handles the rest.
+
 ## Best Practices
 
 1. **Keep tools focused** - One tool = one action
@@ -309,3 +337,4 @@ Empty values (`""` and `[]`) are falsy in Python, so existing `if value:` checks
 4. **Validate inputs** - Use Pydantic constraints (`ge`, `le`, `min_length`, etc.)
 5. **Add tests** - Every tool needs unit tests
 6. **Avoid Optional types** - Use empty defaults for AI Foundry compatibility
+7. **Use specific types** - Use `str` instead of `Any` where possible

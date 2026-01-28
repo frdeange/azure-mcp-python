@@ -18,7 +18,7 @@ This project provides MCP tools that allow AI assistants (like Claude, GPT-4) to
 | Component | Technology | Version |
 |-----------|------------|---------|
 | Language | Python | 3.11+ |
-| MCP SDK | `mcp` (FastMCP) | >=1.0.0 |
+| MCP SDK | `fastmcp` | >=2.14.0 |
 | Validation | Pydantic | >=2.5.0 |
 | Azure Auth | azure-identity | latest |
 | Azure Resource Graph | azure-mgmt-resourcegraph | latest |
@@ -300,11 +300,12 @@ These are NEW features not in the .NET version:
 **Azure SDK**:
 ```python
 from msgraph import GraphServiceClient
-from azure.identity import DefaultAzureCredential
+from azure_mcp.core.auth import CredentialProvider
 
-credential = DefaultAzureCredential()
+credential = CredentialProvider.get_credential()
 client = GraphServiceClient(credentials=credential)
 users = await client.users.get()
+```
 ```
 
 ## Code Style Guidelines

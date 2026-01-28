@@ -4,26 +4,24 @@ This document explains how authentication works in Azure MCP Server.
 
 ## Overview
 
-Azure MCP Server uses the Azure Identity SDK for authentication. It supports the standard Azure credential chain, which automatically tries multiple authentication methods.
+Azure MCP Server uses the Azure Identity SDK with a **unified credential chain** that works seamlessly in both development and production environments. No configuration is needed - the same code works on your laptop and in Azure Container Apps.
 
 ## Credential Chain
 
-### Production (DefaultAzureCredential)
+The server uses `ChainedTokenCredential` which tries these methods in order:
 
-In production, we use `DefaultAzureCredential` which tries these methods in order:
+| Priority | Credential | When Used |
+|----------|------------|----------|
+| 1 | **EnvironmentCredential** | CI/CD pipelines, explicit service principal configuration |
+| 2 | **ManagedIdentityCredential** | Azure Container Apps, VMs, App Service, Functions |
+| 3 | **VisualStudioCodeCredential** | VS Code with Azure extension |
+| 4 | **AzureCliCredential** | Local development after `az login` |
 
-1. **Environment Variables** - `AZURE_CLIENT_ID`, `AZURE_CLIENT_SECRET`, `AZURE_TENANT_ID`
-2. **Workload Identity** - For Kubernetes workloads
-3. **Managed Identity** - For Azure VMs, App Service, Functions
-4. **Azure CLI** - Uses `az login` credentials
-5. **Azure PowerShell** - Uses `Connect-AzAccount` credentials
-6. **Visual Studio Code** - Uses VS Code Azure Account extension
-7. **Azure Developer CLI** - Uses `azd auth login` credentials
-8. **Interactive Browser** - Opens browser for interactive login
+The first credential that succeeds is used. This means:
+- **In production** (Container Apps, VMs): Uses Managed Identity automatically
+- **In development** (your laptop): Uses Azure CLI or VS Code credentials
 
-### Development (AzureCliCredential)
-
-For local development, we default to `AzureCliCredential`:
+### Local Development
 
 ```bash
 # Login with Azure CLI
@@ -40,14 +38,11 @@ az account set --subscription "My Subscription"
 ```python
 from azure_mcp.core.auth import CredentialProvider
 
-# Get default credential
+# Get default credential (unified chain)
 credential = CredentialProvider.get_credential()
 
 # Get credential for specific tenant
-credential = CredentialProvider.get_credential(tenant="my-tenant-id")
-
-# Get development credential (CLI-based)
-credential = CredentialProvider.get_credential_for_dev()
+credential = CredentialProvider.get_credential(tenant_id="my-tenant-guid")
 ```
 
 ### In Services
@@ -67,7 +62,7 @@ class MyService(AzureService):
 For multi-tenant scenarios, pass the tenant ID:
 
 ```python
-credential = CredentialProvider.get_credential(tenant="tenant-guid")
+credential = CredentialProvider.get_credential(tenant_id="tenant-guid")
 ```
 
 ## Environment Variables
@@ -76,7 +71,7 @@ These environment variables affect authentication:
 
 | Variable | Description |
 |----------|-------------|
-| `AZURE_CLIENT_ID` | Service principal client ID |
+| `AZURE_CLIENT_ID` | Service principal client ID, or user-assigned managed identity client ID |
 | `AZURE_CLIENT_SECRET` | Service principal secret |
 | `AZURE_TENANT_ID` | Azure AD tenant ID |
 | `AZURE_SUBSCRIPTION_ID` | Default subscription ID |
@@ -84,15 +79,25 @@ These environment variables affect authentication:
 
 ## Managed Identity
 
-For Azure-hosted workloads, managed identity is preferred:
+For Azure-hosted workloads (Container Apps, VMs, App Service), managed identity is used automatically:
 
 ```python
 # System-assigned managed identity (automatic)
-# Just deploy to Azure and it works
+# Just deploy to Azure and it works - no configuration needed
 
 # User-assigned managed identity
-# Set AZURE_CLIENT_ID to the managed identity's client ID
+# Set AZURE_CLIENT_ID environment variable to the managed identity's client ID
 ```
+
+### Container Apps Example
+
+When deploying to Azure Container Apps:
+
+1. Enable system-assigned managed identity on the Container App
+2. Assign appropriate RBAC roles to the identity
+3. The server automatically uses the managed identity - no code changes needed
+
+See [AI Foundry Deployment Guide](ai-foundry-deployment.md) for detailed RBAC setup.
 
 ## Troubleshooting
 
@@ -107,8 +112,9 @@ For Azure-hosted workloads, managed identity is preferred:
 1. Check RBAC permissions on the target resource
 2. Verify you're using the correct subscription
 3. Check if the operation requires specific roles
+4. For Cosmos DB data operations, ensure Data Contributor role is assigned per account
 
 ### Multi-tenant Issues
 
 1. Ensure you're logged into the correct tenant: `az login --tenant <tenant-id>`
-2. Pass the tenant ID explicitly in code
+2. Pass the tenant ID explicitly in code: `CredentialProvider.get_credential(tenant_id="...")`

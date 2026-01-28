@@ -5,10 +5,11 @@ Enables AI assistants like GitHub Copilot, Claude, and others to interact with A
 
 ## Features
 
-- 🔐 **Secure Authentication** - Uses Azure Identity with credential chain
-- 🛠️ **45+ Azure Tools** - Storage, Cosmos DB, Key Vault, SQL, Monitor, Cost, Entra ID, and more
+- 🔐 **Secure Authentication** - Uses Azure Identity with unified credential chain
+- 🛠️ **8+ Azure Tools** - Resource Graph, Cosmos DB (expanding to Storage, Key Vault, Cost, Entra ID, and more)
 - 🧩 **Extensible** - Easy to add new tools
 - 📚 **Well Documented** - Comprehensive guides for users and contributors
+- ☁️ **AI Foundry Ready** - Compatible with Azure AI Foundry Agent Service
 
 ## Quick Start
 
@@ -70,11 +71,11 @@ azure-mcp
 
 ## Documentation
 
-- [Getting Started](docs/getting-started.md)
-- [Architecture](docs/architecture.md)
+- [Adding Tools](docs/adding-tools.md)
 - [Authentication](docs/authentication.md)
-- [Developing Tools](docs/developing-tools.md)
-- [API Reference](docs/api/)
+- [Testing](docs/testing.md)
+- [AI Foundry Deployment](docs/ai-foundry-deployment.md)
+- [Architecture](ARCHITECTURE.md)
 
 ## Development
 
