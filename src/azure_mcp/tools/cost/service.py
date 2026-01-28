@@ -408,7 +408,7 @@ class CostManagementService(AzureService):
                     if rec.short_description
                     else None,
                     "solution": rec.short_description.solution if rec.short_description else None,
-                    "potential_benefits": rec.potential_benefits,
+                    "potential_benefits": getattr(rec, "potential_benefits", None),
                     "annual_savings": float(annual_savings) if annual_savings else None,
                     "savings_currency": savings_currency,
                     "resource_metadata": {
