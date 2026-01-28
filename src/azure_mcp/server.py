@@ -30,6 +30,7 @@ def register_tools(mcp: FastMCP) -> None:
         def make_handler(t: Any):
             async def handler(**kwargs: Any) -> Any:
                 return await t.run(kwargs)
+
             return handler
 
         mcp.tool(
@@ -53,7 +54,8 @@ def run_http(host: str = "0.0.0.0", port: int = 8000) -> None:
     register_tools(mcp)
 
     # Get the ASGI app for SSE transport (HTTP-based)
-    app = mcp.sse_app()
+    # Allow all hosts for public/reusable server deployment
+    app = mcp.sse_app(allowed_hosts=["*"])
 
     uvicorn.run(app, host=host, port=port)
 
