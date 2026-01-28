@@ -13,11 +13,11 @@ from azure_mcp.core.registry import registry
 
 
 @pytest.fixture(autouse=True)
-def clear_cache():
+async def clear_cache():
     """Clear cache before each test."""
-    cache.clear()
+    await cache.clear()
     yield
-    cache.clear()
+    await cache.clear()
 
 
 @pytest.fixture(autouse=True)

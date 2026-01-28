@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import asyncio
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from typing import Any, Awaitable, Callable, TypeVar
 
 T = TypeVar("T")
@@ -51,13 +51,13 @@ class CacheService:
         """
         async with self._lock:
             entry = self._cache.get(key)
-            if entry and entry.expires_at > datetime.utcnow():
+            if entry and entry.expires_at > datetime.now(UTC):
                 return entry.value
 
             value = await factory()
             self._cache[key] = CacheEntry(
                 value=value,
-                expires_at=datetime.utcnow() + ttl,
+                expires_at=datetime.now(UTC) + ttl,
             )
             return value
 
@@ -65,7 +65,7 @@ class CacheService:
         """Get a value from cache if it exists and is not expired."""
         async with self._lock:
             entry = self._cache.get(key)
-            if entry and entry.expires_at > datetime.utcnow():
+            if entry and entry.expires_at > datetime.now(UTC):
                 return entry.value
             return None
 
@@ -79,7 +79,7 @@ class CacheService:
         async with self._lock:
             self._cache[key] = CacheEntry(
                 value=value,
-                expires_at=datetime.utcnow() + ttl,
+                expires_at=datetime.now(UTC) + ttl,
             )
 
     async def invalidate(self, key: str) -> None:

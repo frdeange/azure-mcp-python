@@ -13,36 +13,48 @@ from azure_mcp.core.cache import CacheService, cache
 class TestCacheService:
     """Tests for CacheService class."""
 
-    def test_get_returns_none_for_missing_key(self):
+    @pytest.fixture(autouse=True)
+    async def clear_cache(self):
+        """Clear cache before each test."""
+        await cache.clear()
+        yield
+        await cache.clear()
+
+    @pytest.mark.asyncio
+    async def test_get_returns_none_for_missing_key(self):
         """Test that get returns None for missing key."""
-        result = cache.get("nonexistent-key")
+        result = await cache.get("nonexistent-key")
         assert result is None
 
-    def test_set_and_get(self):
+    @pytest.mark.asyncio
+    async def test_set_and_get(self):
         """Test basic set and get operations."""
-        cache.set("test-key", "test-value")
-        result = cache.get("test-key")
+        await cache.set("test-key", "test-value")
+        result = await cache.get("test-key")
         assert result == "test-value"
 
-    def test_delete(self):
-        """Test delete operation."""
-        cache.set("test-key", "test-value")
-        cache.delete("test-key")
-        assert cache.get("test-key") is None
+    @pytest.mark.asyncio
+    async def test_invalidate(self):
+        """Test invalidate operation."""
+        await cache.set("test-key", "test-value")
+        await cache.invalidate("test-key")
+        assert await cache.get("test-key") is None
 
-    def test_clear(self):
+    @pytest.mark.asyncio
+    async def test_clear(self):
         """Test clear operation."""
-        cache.set("key1", "value1")
-        cache.set("key2", "value2")
-        cache.clear()
-        assert cache.get("key1") is None
-        assert cache.get("key2") is None
+        await cache.set("key1", "value1")
+        await cache.set("key2", "value2")
+        await cache.clear()
+        assert await cache.get("key1") is None
+        assert await cache.get("key2") is None
 
-    def test_has(self):
-        """Test has operation."""
-        assert not cache.has("test-key")
-        cache.set("test-key", "value")
-        assert cache.has("test-key")
+    @pytest.mark.asyncio
+    async def test_size(self):
+        """Test size operation."""
+        assert cache.size() == 0
+        await cache.set("test-key", "value")
+        assert cache.size() == 1
 
     @pytest.mark.asyncio
     async def test_get_or_set_with_miss(self):
@@ -61,7 +73,7 @@ class TestCacheService:
     @pytest.mark.asyncio
     async def test_get_or_set_with_hit(self):
         """Test get_or_set returns cached value on hit."""
-        cache.set("existing-key", "cached-value")
+        await cache.set("existing-key", "cached-value")
         call_count = 0
 
         async def factory():
@@ -77,13 +89,21 @@ class TestCacheService:
 class TestCacheTTL:
     """Tests for cache TTL behavior."""
 
-    def test_set_with_ttl(self):
-        """Test set with TTL creates entry."""
-        cache.set("ttl-key", "ttl-value", ttl=timedelta(hours=1))
-        assert cache.get("ttl-key") == "ttl-value"
+    @pytest.fixture(autouse=True)
+    async def clear_cache(self):
+        """Clear cache before each test."""
+        await cache.clear()
+        yield
+        await cache.clear()
 
-    def test_default_ttl(self):
+    @pytest.mark.asyncio
+    async def test_set_with_ttl(self):
+        """Test set with TTL creates entry."""
+        await cache.set("ttl-key", "ttl-value", ttl=timedelta(hours=1))
+        assert await cache.get("ttl-key") == "ttl-value"
+
+    @pytest.mark.asyncio
+    async def test_default_ttl(self):
         """Test that default TTL is applied."""
-        # Default TTL should be configured in cache
-        cache.set("default-ttl-key", "value")
-        assert cache.has("default-ttl-key")
+        await cache.set("default-ttl-key", "value")
+        assert await cache.get("default-ttl-key") == "value"

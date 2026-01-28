@@ -132,7 +132,7 @@ class ResourceGraphQueryTool(AzureTool):
     def metadata(self) -> ToolMetadata:
         return ToolMetadata(
             read_only=True,
-            requires_confirmation=False,
+            destructive=False,
             idempotent=True,
         )
 

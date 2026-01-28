@@ -59,6 +59,7 @@ class TestResourceGraphQueryTool:
         assert "Resource Graph" in tool.description
         assert tool.metadata.read_only is True
         assert tool.metadata.idempotent is True
+        assert tool.metadata.destructive is False
 
     def test_options_schema(self):
         """Test that options schema is valid JSON schema."""
@@ -111,7 +112,7 @@ class TestResourceGraphService:
     @pytest.mark.asyncio
     async def test_query_with_subscriptions(self, mock_resourcegraph_client, patch_credential):
         """Test query with explicit subscriptions."""
-        with patch("azure_mcp.tools.resourcegraph.query.ResourceGraphClient") as mock_cls:
+        with patch("azure.mgmt.resourcegraph.ResourceGraphClient") as mock_cls:
             mock_cls.return_value = mock_resourcegraph_client
 
             service = ResourceGraphService()
