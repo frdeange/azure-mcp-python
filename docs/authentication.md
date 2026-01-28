@@ -99,6 +99,64 @@ When deploying to Azure Container Apps:
 
 See [AI Foundry Deployment Guide](ai-foundry-deployment.md) for detailed RBAC setup.
 
+## Microsoft Graph Permissions (Entra ID Tools)
+
+The Entra ID tools require **Microsoft Graph API permissions**. These are configured on the App Registration, not via Azure RBAC.
+
+### Required Permissions by Tool
+
+| Tool | Permission (Application) | Notes |
+|------|--------------------------|-------|
+| `entraid_user_list` | `User.Read.All` | |
+| `entraid_user_get` | `User.Read.All` | |
+| `entraid_user_manager` | `User.Read.All` | |
+| `entraid_user_directreports` | `User.Read.All` | |
+| `entraid_user_memberof` | `User.Read.All`, `GroupMember.Read.All` | |
+| `entraid_user_licenses` | `User.Read.All` | |
+| `entraid_group_list` | `Group.Read.All` | |
+| `entraid_group_get` | `Group.Read.All` | |
+| `entraid_group_members` | `GroupMember.Read.All` | |
+| `entraid_group_owners` | `GroupMember.Read.All` | |
+| `entraid_app_list` | `Application.Read.All` | |
+| `entraid_app_get` | `Application.Read.All` | |
+| `entraid_serviceprincipal_list` | `Application.Read.All` | |
+| `entraid_serviceprincipal_get` | `Application.Read.All` | |
+| `entraid_directory_roles` | `RoleManagement.Read.Directory` | |
+| `entraid_role_assignments` | `RoleManagement.Read.Directory` | |
+| `entraid_signin_logs` | `AuditLog.Read.All` | **Requires P1/P2 license** |
+| `entraid_audit_logs` | `AuditLog.Read.All` | **Requires P1/P2 license** |
+
+### Setting Up Graph Permissions
+
+1. **In Azure Portal**: Go to App Registrations → Your App → API Permissions
+2. **Add Permission**: Microsoft Graph → Application permissions
+3. **Grant Admin Consent**: Required for application permissions
+
+### License Requirements
+
+⚠️ **Sign-in logs and audit logs require Entra ID P1 or P2 license.**
+
+If you attempt to use these tools without the appropriate license, you'll receive an error message explaining the requirement:
+
+```
+This operation requires an Entra ID P1 or P2 license.
+Sign-in logs and audit logs are premium features.
+See: https://learn.microsoft.com/en-us/entra/identity/monitoring-health/concept-sign-ins
+```
+
+### Minimum Permission Sets
+
+For read-only directory access (most common):
+- `User.Read.All`
+- `Group.Read.All`
+- `GroupMember.Read.All`
+- `Application.Read.All`
+
+For security auditing (requires P1/P2):
+- All of the above, plus:
+- `RoleManagement.Read.Directory`
+- `AuditLog.Read.All`
+
 ## Troubleshooting
 
 ### "No credential available"
@@ -113,6 +171,13 @@ See [AI Foundry Deployment Guide](ai-foundry-deployment.md) for detailed RBAC se
 2. Verify you're using the correct subscription
 3. Check if the operation requires specific roles
 4. For Cosmos DB data operations, ensure Data Contributor role is assigned per account
+5. For Entra ID tools, ensure Microsoft Graph permissions are granted and admin consent is given
+
+### Microsoft Graph "Insufficient privileges"
+
+1. Verify the app has the required Graph permissions
+2. Check that admin consent was granted
+3. For `signin_logs` and `audit_logs`, verify you have Entra ID P1/P2 license
 
 ### Multi-tenant Issues
 
