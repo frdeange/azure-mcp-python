@@ -169,6 +169,65 @@ class TestStorageAccountListTool:
 | `{family}_{resource}_query` | `cosmos_item_query` | Query/search |
 | `{family}_{resource}_{action}` | `keyvault_secret_rotate` | Custom action |
 
+## File Organization
+
+### When to Group Tools in One File
+
+**Group tools by resource**, not by action. Multiple tools that operate on the same resource should be in the same file:
+
+```
+src/azure_mcp/tools/cosmos/
+├── __init__.py
+├── service.py           # Shared service logic
+├── account.py           # cosmos_account_list (single tool for account resource)
+├── database.py          # cosmos_database_list (single tool for database resource)
+├── container.py         # cosmos_container_list (single tool for container resource)
+└── item.py              # cosmos_item_query, cosmos_item_get, cosmos_item_upsert, cosmos_item_delete
+                         # ↑ Multiple tools grouped because they all operate on "item" resource
+```
+
+### Grouping Rules
+
+| Scenario | Approach | Example |
+|----------|----------|---------|
+| Multiple actions on same resource | **One file** | `item.py` → query, get, upsert, delete |
+| Single action on a resource | **One file** | `account.py` → list only |
+| Different resources | **Separate files** | `database.py`, `container.py` |
+| Different Azure SDKs | **Separate files** | `query.py` (CostManagement), `budgets.py` (Consumption) |
+
+### Service Class Location
+
+- **One `service.py` per family**: Contains all Azure SDK operations
+- Tools import from the shared service
+- Keeps Azure SDK logic separate from tool definitions
+
+```python
+# src/azure_mcp/tools/{family}/service.py
+class FamilyService(AzureService):
+    async def list_resources(self, ...): ...
+    async def get_resource(self, ...): ...
+    async def create_resource(self, ...): ...
+```
+
+### File Naming
+
+| File | Contains |
+|------|----------|
+| `service.py` | `FamilyService` class with Azure SDK operations |
+| `{resource}.py` | All tools for that resource (list, get, create, delete, etc.) |
+| `__init__.py` | Exports all tool classes |
+
+### Example: Well-Organized Family
+
+```
+src/azure_mcp/tools/keyvault/
+├── __init__.py              # Exports: SecretListTool, SecretGetTool, KeyListTool...
+├── service.py               # KeyVaultService with all SDK operations
+├── secret.py                # keyvault_secret_list, keyvault_secret_get, keyvault_secret_set
+├── key.py                   # keyvault_key_list, keyvault_key_get
+└── certificate.py           # keyvault_certificate_list, keyvault_certificate_get
+```
+
 ## Metadata Guidelines
 
 Set `ToolMetadata` appropriately:
