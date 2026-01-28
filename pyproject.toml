@@ -38,6 +38,9 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+# HTTP transport for cloud deployment
+http = ["uvicorn>=0.30.0", "starlette>=0.27.0"]
+
 # Azure service SDKs - install as needed
 storage = ["azure-storage-blob>=12.19.0"]
 cosmos = ["azure-cosmos>=4.5.0", "azure-mgmt-cosmosdb>=9.0.0"]
@@ -53,7 +56,7 @@ entra = ["msgraph-sdk>=1.0.0"]
 
 # All Azure services
 all = [
-    "azure-mcp[storage,cosmos,keyvault,sql,monitor,cost,entra]",
+    "azure-mcp[http,storage,cosmos,keyvault,sql,monitor,cost,entra]",
 ]
 
 # Development
@@ -75,6 +78,7 @@ docs = [
 
 [project.scripts]
 azure-mcp = "azure_mcp.server:main"
+azure-mcp-http = "azure_mcp.server:main_http"
 
 [build-system]
 requires = ["hatchling"]
