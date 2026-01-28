@@ -118,7 +118,7 @@ class AzureService:
                 {
                     "id": sub.subscription_id,
                     "name": sub.display_name,
-                    "state": sub.state.value if sub.state else None,
+                    "state": sub.state.value if hasattr(sub.state, "value") else sub.state,
                     "tenant_id": sub.tenant_id,
                 }
                 for sub in client.subscriptions.list()
