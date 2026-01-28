@@ -139,7 +139,11 @@ class StorageService(AzureService):
         Returns:
             Storage account details.
         """
+        from azure.mgmt.resourcegraph import ResourceGraphClient
+        from azure.mgmt.resourcegraph.models import QueryRequest
+
         sub_id = await self.resolve_subscription(subscription)
+        credential = self.get_credential()
 
         query = f"""
         resources
@@ -169,12 +173,14 @@ class StorageService(AzureService):
         if resource_group:
             query += f"\n| where resourceGroup =~ '{resource_group}'"
 
-        results = await self.query_resource_graph(query, [sub_id])
+        client = ResourceGraphClient(credential)
+        request = QueryRequest(subscriptions=[sub_id], query=query)
+        result = client.resources(request)
 
-        if not results:
+        if not result.data:
             raise ValueError(f"Storage account '{account_name}' not found")
 
-        return results[0]
+        return result.data[0]
 
     async def list_containers(
         self,
