@@ -1024,7 +1024,9 @@ class EntraIdService(AzureService):
                 RoleAssignmentsRequestBuilder.RoleAssignmentsRequestBuilderGetQueryParameters(
                     top=top,
                     filter=filter_str,
-                    expand=["principal", "roleDefinition"],
+                    # Note: Graph API only allows expanding one property at a time
+                    # We expand roleDefinition to get role name; principal info is in principalId
+                    expand=["roleDefinition"],
                 )
             )
             request_config = (
