@@ -3,9 +3,11 @@
 from __future__ import annotations
 
 import os
-from typing import Any
+from typing import Annotated, Any
 
 from fastmcp import FastMCP
+from pydantic import BaseModel
+from pydantic.fields import FieldInfo
 
 from azure_mcp.core.registry import registry
 
@@ -19,6 +21,82 @@ def create_server() -> FastMCP:
     return mcp
 
 
+def _get_field_description(field_info: FieldInfo) -> str:
+    """Extract description from Pydantic FieldInfo."""
+    return field_info.description or ""
+
+
+def _create_flat_handler(tool: Any, options_model: type[BaseModel]):
+    """
+    Create a handler with individual Annotated parameters instead of a Pydantic model.
+    
+    This generates a flat JSON schema without $ref/$defs that AI Foundry requires.
+    We use exec() to dynamically create a function with explicit parameters.
+    """
+    model_fields = options_model.model_fields
+    field_names = list(model_fields.keys())
+    
+    # Build parameter strings for the function signature
+    param_parts = []
+    for field_name, field_info in model_fields.items():
+        # Check if field has a default
+        if field_info.default is not None and field_info.default is not ...:
+            # Has default value
+            param_parts.append(f"{field_name}={field_name}_default")
+        elif field_info.default_factory is not None:
+            # Has default_factory
+            param_parts.append(f"{field_name}={field_name}_default")
+        else:
+            # Required field (no default)
+            param_parts.append(field_name)
+    
+    params_str = ", ".join(param_parts)
+    kwargs_items = ", ".join(f'"{fn}": {fn}' for fn in field_names)
+    
+    # Build the function code (use triple braces to escape dict braces in f-string)
+    func_code = f'''
+async def handler_func({params_str}) -> Any:
+    kwargs = {{{kwargs_items}}}
+    options = options_model(**kwargs)
+    return await tool_instance.execute(options)
+'''
+    
+    # Prepare the namespace with defaults and dependencies
+    namespace = {
+        "Any": Any,
+        "Annotated": Annotated,
+        "options_model": options_model,
+        "tool_instance": tool,
+    }
+    
+    # Add defaults to namespace
+    for field_name, field_info in model_fields.items():
+        if field_info.default is not None and field_info.default is not ...:
+            namespace[f"{field_name}_default"] = field_info.default
+        elif field_info.default_factory is not None:
+            namespace[f"{field_name}_default"] = field_info.default_factory()
+    
+    # Execute to create the function
+    exec(func_code, namespace)
+    handler = namespace["handler_func"]
+    
+    # Set function name and docstring
+    handler.__name__ = tool.name
+    handler.__doc__ = tool.description
+    
+    # Set annotations with Annotated types for schema generation
+    annotations = {}
+    for field_name, field_info in model_fields.items():
+        field_type = field_info.annotation
+        description = _get_field_description(field_info)
+        annotations[field_name] = Annotated[field_type, description]
+    annotations["return"] = Any
+    
+    handler.__annotations__ = annotations
+    
+    return handler
+
+
 def register_tools(mcp: FastMCP) -> None:
     """Register all tools with the MCP server."""
     # Import tools to trigger registration
@@ -26,22 +104,13 @@ def register_tools(mcp: FastMCP) -> None:
 
     # Register all tools with MCP
     for tool in registry.list_tools():
-        # Get the Pydantic options model for this tool
         options_model = tool.options_model
-
-        # Create a handler function with explicit Pydantic model parameter
-        # fastmcp 2.x requires explicit parameters, not **kwargs
-        def make_handler(t: Any, model: type):
-            async def handler(options) -> Any:
-                return await t.execute(options)
-
-            # Set function metadata for fastmcp - use __annotations__ for runtime type info
-            handler.__annotations__ = {"options": model, "return": Any}
-            handler.__name__ = t.name
-            handler.__doc__ = t.description
-            return handler
-
-        mcp.tool(name=tool.name)(make_handler(tool, options_model))
+        
+        # Create handler with flat parameters (no $ref in schema)
+        handler = _create_flat_handler(tool, options_model)
+        
+        # Register with fastmcp
+        mcp.tool(name=tool.name)(handler)
 
 
 def main() -> None:
