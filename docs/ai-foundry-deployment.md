@@ -187,20 +187,84 @@ az containerapp create \
   --registry-identity system
 ```
 
-### 4. Assign Managed Identity Permissions
+### 4. Enable System-Assigned Managed Identity
 
 ```bash
-# Get Container App identity
+az containerapp identity assign \
+  --name azure-mcp-python \
+  --resource-group MyResourceGroup \
+  --system-assigned
+
+# Get the identity principal ID
 IDENTITY=$(az containerapp show \
   --name azure-mcp-python \
   --resource-group MyResourceGroup \
   --query identity.principalId -o tsv)
 
-# Assign Reader role on subscription
-az role assignment create \
-  --assignee $IDENTITY \
-  --role "Reader" \
-  --scope /subscriptions/<subscription-id>
+echo "Principal ID: $IDENTITY"
+```
+
+### 5. Assign RBAC Roles (Subscription Level)
+
+The MCP server needs permissions to access Azure resources. Assign these roles at subscription level for broad access:
+
+```bash
+SUB="/subscriptions/<subscription-id>"
+
+# Core roles for all tools
+az role assignment create --assignee $IDENTITY --role "Reader" --scope $SUB
+az role assignment create --assignee $IDENTITY --role "Contributor" --scope $SUB
+
+# Cosmos DB (control plane only - see below for data plane)
+az role assignment create --assignee $IDENTITY --role "Cosmos DB Account Reader Role" --scope $SUB
+
+# Cost Management tools
+az role assignment create --assignee $IDENTITY --role "Cost Management Reader" --scope $SUB
+
+# Key Vault tools
+az role assignment create --assignee $IDENTITY --role "Key Vault Administrator" --scope $SUB
+
+# Storage tools
+az role assignment create --assignee $IDENTITY --role "Storage Blob Data Contributor" --scope $SUB
+az role assignment create --assignee $IDENTITY --role "Storage Table Data Contributor" --scope $SUB
+az role assignment create --assignee $IDENTITY --role "Storage Queue Data Contributor" --scope $SUB
+
+# Azure Monitor tools
+az role assignment create --assignee $IDENTITY --role "Monitoring Reader" --scope $SUB
+```
+
+#### Summary of Required Roles
+
+| Role | Scope | Tools |
+|------|-------|-------|
+| Reader | Subscription | All (Resource Graph queries) |
+| Contributor | Subscription | Resource management |
+| Cosmos DB Account Reader Role | Subscription | `cosmos_account_list`, `cosmos_database_list` |
+| Cost Management Reader | Subscription | `cost_query`, `cost_forecast`, `cost_budgets_*` |
+| Key Vault Administrator | Subscription | `keyvault_secret_*`, `keyvault_key_*` |
+| Storage Blob Data Contributor | Subscription | `storage_blob_*` |
+| Storage Table Data Contributor | Subscription | `storage_table_*` |
+| Storage Queue Data Contributor | Subscription | `storage_queue_*` |
+| Monitoring Reader | Subscription | `monitor_*` |
+
+### 6. Cosmos DB Data Plane Roles (Special Case)
+
+⚠️ **Important**: Cosmos DB data plane (reading/writing items) uses a separate RBAC system that cannot be assigned at subscription level. You must assign per Cosmos DB account.
+
+```bash
+# For each Cosmos DB account:
+az cosmosdb sql role assignment create \
+  --account-name <cosmos-account-name> \
+  --resource-group <resource-group> \
+  --principal-id $IDENTITY \
+  --role-definition-id "00000000-0000-0000-0000-000000000002" \
+  --scope "/"
+```
+
+**Automation Script**: Use `scripts/assign-cosmos-data-roles.sh` to assign to all accounts:
+
+```bash
+./scripts/assign-cosmos-data-roles.sh $IDENTITY
 ```
 
 ## Using with AI Foundry
@@ -258,8 +322,24 @@ agent = project_client.agents.create_version(
 **Cause**: Container App doesn't have Azure permissions
 
 **Solution**: 
-1. Enable system-assigned managed identity
-2. Assign appropriate RBAC roles (Reader, Cosmos DB Account Reader, etc.)
+1. Enable system-assigned managed identity on the Container App
+2. Assign RBAC roles at subscription level:
+   - `Reader` - Required for Resource Graph queries
+   - `Contributor` - For resource management
+   - `Cosmos DB Account Reader Role` - List Cosmos accounts/databases
+   - `Cost Management Reader` - Cost tools
+   - `Key Vault Administrator` - Key Vault tools
+   - `Storage Blob/Table/Queue Data Contributor` - Storage tools
+   - `Monitoring Reader` - Azure Monitor tools
+3. For Cosmos DB data plane access (reading/writing items), assign per account:
+   ```bash
+   az cosmosdb sql role assignment create \
+     --account-name <account> \
+     --resource-group <rg> \
+     --principal-id <identity> \
+     --role-definition-id "00000000-0000-0000-0000-000000000002" \
+     --scope "/"
+   ```
 
 ## Security Considerations
 
