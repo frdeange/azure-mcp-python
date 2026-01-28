@@ -6,14 +6,29 @@ import os
 from typing import Any
 
 from mcp.server.fastmcp import FastMCP
+from mcp.server.transport_security import TransportSecuritySettings
 
 from azure_mcp.core.registry import registry
 
 
-def create_server() -> FastMCP:
-    """Create and configure the MCP server."""
+def create_server(http_mode: bool = False) -> FastMCP:
+    """Create and configure the MCP server.
+    
+    Args:
+        http_mode: If True, configures server for HTTP/cloud deployment
+                   with relaxed host validation (allows all hosts).
+    """
+    # For HTTP/cloud deployment, disable DNS rebinding protection
+    # to allow requests from any host (Azure Container Apps, etc.)
+    transport_security = None
+    if http_mode:
+        transport_security = TransportSecuritySettings(
+            enable_dns_rebinding_protection=False,
+        )
+    
     mcp = FastMCP(
         name="Azure MCP Server",
+        transport_security=transport_security,
     )
 
     return mcp
@@ -50,12 +65,12 @@ def run_http(host: str = "0.0.0.0", port: int = 8000) -> None:
     """Run the Azure MCP server in HTTP/SSE mode for cloud deployment."""
     import uvicorn
 
-    mcp = create_server()
+    # Create server with HTTP mode enabled (disables DNS rebinding protection)
+    mcp = create_server(http_mode=True)
     register_tools(mcp)
 
     # Get the ASGI app for SSE transport (HTTP-based)
-    # Allow all hosts for public/reusable server deployment
-    app = mcp.sse_app(allowed_hosts=["*"])
+    app = mcp.sse_app()
 
     uvicorn.run(app, host=host, port=port)
 
