@@ -172,3 +172,69 @@ class TestSpecificToolSchemas:
         assert params.get("type") == "array"
         # default_factory generates empty list at runtime, may not appear in schema
         assert "anyOf" not in params, "parameters should not have anyOf"
+
+
+class TestDefaultFactoryNotRequired:
+    """Test that fields with default_factory are not marked as required."""
+
+    def test_resourcegraph_list_fields_not_required(self):
+        """Verify subscriptions and management_groups are NOT required in schema."""
+        from azure_mcp.tools.resourcegraph.query import ResourceGraphQueryOptions
+
+        schema = ResourceGraphQueryOptions.model_json_schema()
+        required = schema.get("required", [])
+
+        # query IS required (has ...)
+        assert "query" in required, "query should be required"
+
+        # subscriptions and management_groups have default_factory=list
+        # so should NOT be required
+        assert "subscriptions" not in required, (
+            "subscriptions has default_factory=list, should NOT be required"
+        )
+        assert "management_groups" not in required, (
+            "management_groups has default_factory=list, should NOT be required"
+        )
+
+    def test_pydantic_schema_vs_mcp_schema(self):
+        """Verify Pydantic's native schema correctly marks defaults."""
+        from azure_mcp.tools.resourcegraph.query import ResourceGraphQueryOptions
+
+        # Pydantic's own schema should be correct
+        schema = ResourceGraphQueryOptions.model_json_schema()
+        required = schema.get("required", [])
+
+        # Fields with default_factory should NOT appear in required
+        props = schema.get("properties", {})
+
+        # subscriptions should have a default (empty array)
+        subs = props.get("subscriptions", {})
+        assert subs.get("type") == "array", "subscriptions should be array type"
+
+        # It should not be in required
+        assert "subscriptions" not in required
+
+    def test_all_default_factory_fields_not_required(self):
+        """Check all tools to ensure default_factory fields are optional."""
+        from azure_mcp import tools  # noqa: F401
+
+        violations = []
+
+        for tool in registry.list_tools():
+            options_model = tool.options_model
+            schema = options_model.model_json_schema()
+            required = set(schema.get("required", []))
+
+            # Check each field
+            for field_name, field_info in options_model.model_fields.items():
+                if field_info.default_factory is not None:
+                    # Field has default_factory, should NOT be required
+                    if field_name in required:
+                        violations.append(
+                            f"{tool.name}: {field_name} has default_factory but is marked required"
+                        )
+
+        assert not violations, (
+            "Fields with default_factory should not be required:\n"
+            + "\n".join(f"  - {v}" for v in violations)
+        )

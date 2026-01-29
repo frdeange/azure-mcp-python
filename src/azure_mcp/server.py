@@ -6,7 +6,7 @@ import os
 from typing import Annotated, Any
 
 from fastmcp import FastMCP
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from pydantic.fields import FieldInfo
 
 from azure_mcp.core.registry import registry
@@ -85,11 +85,31 @@ async def handler_func({params_str}) -> Any:
     handler.__doc__ = tool.description
 
     # Set annotations with Annotated types for schema generation
+    # Include Field() with default info so FastMCP generates correct required/optional
     annotations = {}
     for field_name, field_info in model_fields.items():
         field_type = field_info.annotation
         description = _get_field_description(field_info)
-        annotations[field_name] = Annotated[field_type, description]
+
+        # Include default/default_factory in Field annotation for correct schema generation
+        if field_info.default_factory is not None:
+            # Has default_factory (e.g., list, dict)
+            annotations[field_name] = Annotated[
+                field_type,
+                Field(default_factory=field_info.default_factory, description=description),
+            ]
+        elif field_info.default is not None and field_info.default is not ...:
+            # Has explicit default value
+            annotations[field_name] = Annotated[
+                field_type,
+                Field(default=field_info.default, description=description),
+            ]
+        else:
+            # Required field (no default)
+            annotations[field_name] = Annotated[
+                field_type,
+                Field(..., description=description),
+            ]
     annotations["return"] = Any
 
     handler.__annotations__ = annotations
