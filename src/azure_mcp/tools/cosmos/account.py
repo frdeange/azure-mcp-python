@@ -84,9 +84,6 @@ class CosmosAccountService(AzureService):
         Returns:
             List of Cosmos DB account dictionaries.
         """
-        from azure.mgmt.resourcegraph import ResourceGraphClient
-        from azure.mgmt.resourcegraph.models import QueryRequest
-
         sub_id = await self.resolve_subscription(subscription)
 
         # Build KQL query
@@ -101,21 +98,13 @@ class CosmosAccountService(AzureService):
 
         query += f" | limit {limit}"
 
-        # Execute query
-        credential = self.get_credential()
-        client = ResourceGraphClient(credential)
-
-        request = QueryRequest(
-            subscriptions=[sub_id],
+        # Use the base class method
+        result = await self.execute_resource_graph_query(
             query=query,
+            subscriptions=[sub_id],
         )
 
-        result = client.resources(request)
-
-        if result.data:
-            return list(result.data)
-
-        return []
+        return result.get("data", [])
 
 
 @register_tool("cosmos", "account")

@@ -50,15 +50,21 @@ Base class for all service implementations. Provides:
 
 - **Credential management** via `CredentialProvider`
 - **Subscription resolution** (name → ID with caching)
-- **Resource Graph queries** via `list_resources()` and `get_resource()`
+- **Resource Graph queries** via `execute_resource_graph_query()`, `list_resources()`, and `get_resource()`
 
 ```python
 class AzureService:
-    async def get_credential(self, tenant: str | None = None) -> TokenCredential
+    def get_credential(self, tenant: str | None = None) -> TokenCredential
     async def resolve_subscription(self, subscription: str) -> str
+    async def list_subscriptions(self, tenant: str | None = None) -> list[dict]
+    async def execute_resource_graph_query(self, query: str, subscriptions: list[str] | None = None, ...) -> dict
     async def list_resources(self, resource_type: str, subscription: str, ...) -> list[dict]
     async def get_resource(self, resource_type: str, subscription: str, name: str) -> dict | None
 ```
+
+**⚠️ IMPORTANT**: All services MUST extend `AzureService` and use these methods instead of
+creating SDK clients directly (e.g., `ResourceGraphClient`, `SubscriptionClient`).
+See `tests/unit/test_architecture_patterns.py` for automated validation.
 
 ### AzureTool (`core/base.py`)
 
@@ -141,4 +147,4 @@ See [authentication.md](authentication.md) for details.
 
 ## Adding New Tools
 
-See [developing-tools.md](developing-tools.md) for the complete guide.
+See [docs/adding-tools.md](docs/adding-tools.md) for the complete guide.

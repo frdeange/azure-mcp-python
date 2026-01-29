@@ -17,6 +17,7 @@ This document provides essential context for AI coding assistants working on thi
 5. **Register tools** with `@register_tool("family", "subgroup")` decorator
 6. **AI Foundry compatible schemas** - NO `str | None` or `list | None` patterns (see below)
 7. **Use fastmcp** for MCP server (`fastmcp>=2.14.0`)
+8. **⚠️ CHECK BASE CLASS FIRST** - Always use `AzureService` methods before implementing SDK calls directly. Run `pytest tests/unit/test_architecture_patterns.py` to validate.
 
 ## ⚠️ AI Foundry Schema Compatibility
 
@@ -105,3 +106,5 @@ class MyTool(AzureTool):
 - Use `ToolMetadata(read_only=False, requires_confirmation=True)` for write ops
 - **Use `str = ""` NOT `str | None`** for optional fields (AI Foundry compatibility)
 - Run `pytest tests/unit/test_schema_compatibility.py` to verify schemas
+- Run `pytest tests/unit/test_architecture_patterns.py` to validate patterns
+- **Use base class methods** (`execute_resource_graph_query()`, `resolve_subscription()`, `get_credential()`) - never instantiate SDK clients directly

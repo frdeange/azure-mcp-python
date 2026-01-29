@@ -98,7 +98,8 @@ class MyService(AzureService):
     async def do_operation(self, param1: str, param2: int, optional_filter: str = "") -> dict:
         # Use self.get_credential() for auth
         # Use self.resolve_subscription() for sub name→ID
-        # Use self.list_resources() for Resource Graph queries
+        # Use self.list_resources() for simple Resource Graph queries
+        # Use self.execute_resource_graph_query() for custom KQL queries
         pass
 
 
@@ -155,8 +156,10 @@ class MyTool(AzureTool):
 
 **IMPORTANT**: For listing Azure resources, ALWAYS use Azure Resource Graph instead of individual management API calls.
 
+#### Simple Listings - Use `list_resources()`
+
 ```python
-# ✅ CORRECT - Use Resource Graph
+# ✅ CORRECT - Use list_resources() for simple queries
 async def list_storage_accounts(self, subscription: str) -> list[dict]:
     return await self.list_resources(
         resource_type="Microsoft.Storage/storageAccounts",
@@ -169,10 +172,40 @@ async def list_storage_accounts_slow(self, subscription: str):
     return list(client.storage_accounts.list())  # Slow, limited
 ```
 
+#### Custom Queries - Use `execute_resource_graph_query()`
+
+For complex KQL queries with projections, joins, or aggregations:
+
+```python
+# ✅ CORRECT - Use execute_resource_graph_query() for custom KQL
+async def list_vms_with_details(self, subscription: str) -> list[dict]:
+    sub_id = await self.resolve_subscription(subscription)
+    query = """
+    resources
+    | where type =~ 'microsoft.compute/virtualmachines'
+    | project name, location, vmSize = properties.hardwareProfile.vmSize
+    | order by name
+    """
+    result = await self.execute_resource_graph_query(
+        query=query,
+        subscriptions=[sub_id],
+    )
+    return result.get("data", [])
+
+# ❌ WRONG - Don't create ResourceGraphClient directly
+from azure.mgmt.resourcegraph import ResourceGraphClient
+client = ResourceGraphClient(credential)  # NEVER do this in services
+```
+
 The `AzureService` base class provides:
-- `list_resources(resource_type, subscription, ...)` - Query via Resource Graph
+- `execute_resource_graph_query(query, subscriptions, ...)` - Custom KQL queries
+- `list_resources(resource_type, subscription, ...)` - Simple resource listings
 - `get_resource(resource_type, subscription, name, ...)` - Get single resource
 - `resolve_subscription(name_or_id)` - Convert subscription name to ID
+- `list_subscriptions()` - Get all accessible subscriptions
+- `get_credential()` - Get Azure credential
+
+**Run `pytest tests/unit/test_architecture_patterns.py`** to validate pattern compliance.
 
 ### 4. Error Handling
 

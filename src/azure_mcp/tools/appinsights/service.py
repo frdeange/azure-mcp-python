@@ -81,7 +81,8 @@ class AppInsightsService(AzureService):
         | take {top}
         """
 
-        return await self.run_resource_graph_query(query, [sub_id])
+        result = await self.execute_resource_graph_query(query, subscriptions=[sub_id])
+        return result.get("data", [])
 
     async def get_app_insights(
         self,
@@ -129,7 +130,8 @@ class AppInsightsService(AzureService):
             tags
         """
 
-        results = await self.run_resource_graph_query(query, [sub_id])
+        result = await self.execute_resource_graph_query(query, subscriptions=[sub_id])
+        results = result.get("data", [])
         if not results:
             from azure_mcp.core.errors import ResourceNotFoundError
 

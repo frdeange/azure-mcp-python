@@ -30,7 +30,7 @@ class TestAppInsightsToolRegistration:
         """Test appinsights get tool metadata."""
         tool = AppInsightsGetTool()
         assert tool.name == "appinsights_get"
-        assert "resource ID" in tool.description.lower()
+        assert "resource id" in tool.description.lower()
 
     def test_appinsights_query_tool_metadata(self):
         """Test appinsights query tool metadata."""
@@ -161,15 +161,13 @@ class TestAppInsightsServiceMethods:
 
         service = AppInsightsService()
 
-        with patch.object(
-            service, "resolve_subscription", new_callable=AsyncMock
-        ) as mock_resolve:
+        with patch.object(service, "resolve_subscription", new_callable=AsyncMock) as mock_resolve:
             mock_resolve.return_value = "sub-123"
 
             with patch.object(
-                service, "run_resource_graph_query", new_callable=AsyncMock
+                service, "execute_resource_graph_query", new_callable=AsyncMock
             ) as mock_rg:
-                mock_rg.return_value = [{"name": "app-insights-1"}]
+                mock_rg.return_value = {"data": [{"name": "app-insights-1"}], "count": 1}
 
                 await service.list_app_insights(
                     subscription="my-sub",
@@ -179,8 +177,10 @@ class TestAppInsightsServiceMethods:
 
                 assert mock_rg.called
                 # Should query for microsoft.insights/components
-                query = mock_rg.call_args[0][0].lower()
-                assert "microsoft.insights/components" in query
+                # The first positional arg is the query
+                call_args = mock_rg.call_args
+                query = call_args[0][0] if call_args[0] else call_args[1].get("query", "")
+                assert "microsoft.insights/components" in query.lower()
 
     @pytest.mark.asyncio
     async def test_get_app_insights_not_found(self):
@@ -190,15 +190,13 @@ class TestAppInsightsServiceMethods:
 
         service = AppInsightsService()
 
-        with patch.object(
-            service, "resolve_subscription", new_callable=AsyncMock
-        ) as mock_resolve:
+        with patch.object(service, "resolve_subscription", new_callable=AsyncMock) as mock_resolve:
             mock_resolve.return_value = "sub-123"
 
             with patch.object(
-                service, "run_resource_graph_query", new_callable=AsyncMock
+                service, "execute_resource_graph_query", new_callable=AsyncMock
             ) as mock_rg:
-                mock_rg.return_value = []  # Not found
+                mock_rg.return_value = {"data": [], "count": 0}  # Not found
 
                 with pytest.raises(ResourceNotFoundError):
                     await service.get_app_insights(

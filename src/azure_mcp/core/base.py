@@ -126,6 +126,72 @@ class AzureService:
 
         return await cache.get_or_set(cache_key, fetch_subscriptions, SUBSCRIPTION_CACHE_TTL)
 
+    async def execute_resource_graph_query(
+        self,
+        query: str,
+        subscriptions: list[str] | None = None,
+        management_groups: list[str] | None = None,
+        skip: int = 0,
+        top: int = 1000,
+    ) -> dict[str, Any]:
+        """
+        Execute a custom Resource Graph KQL query.
+
+        This is the central method for all Resource Graph queries. Use this for
+        custom KQL queries with projections, aggregations, or complex filters.
+        For simple resource listings, prefer list_resources() instead.
+
+        Args:
+            query: Full KQL query string.
+            subscriptions: List of subscription IDs. If empty and no management_groups,
+                          queries all accessible subscriptions.
+            management_groups: List of management group IDs. Takes precedence over subscriptions.
+            skip: Number of rows to skip for pagination.
+            top: Maximum rows to return.
+
+        Returns:
+            Dict with 'data', 'count', 'total_records', 'skip_token', 'result_truncated'.
+        """
+        from azure.mgmt.resourcegraph import ResourceGraphClient
+        from azure.mgmt.resourcegraph.models import QueryRequest, QueryRequestOptions
+
+        credential = self.get_credential()
+        client = ResourceGraphClient(credential)
+
+        # Build request options
+        options = QueryRequestOptions(skip=skip, top=top)
+
+        # Build request - use management groups if provided, else subscriptions
+        if management_groups:
+            request = QueryRequest(
+                management_groups=management_groups,
+                query=query,
+                options=options,
+            )
+        else:
+            # If no subscriptions provided, get all accessible
+            if not subscriptions:
+                subs = await self.list_subscriptions()
+                subscriptions = [s["id"] for s in subs]
+
+            request = QueryRequest(
+                subscriptions=subscriptions,
+                query=query,
+                options=options,
+            )
+
+        # Execute query
+        result = client.resources(request)
+
+        # Return structured result
+        return {
+            "data": list(result.data) if result.data else [],
+            "count": result.count,
+            "total_records": result.total_records,
+            "skip_token": result.skip_token,
+            "result_truncated": result.result_truncated,
+        }
+
     async def list_resources(
         self,
         resource_type: str,
@@ -138,6 +204,10 @@ class AzureService:
         """
         List resources using Azure Resource Graph.
 
+        This is a convenience wrapper around execute_resource_graph_query() for
+        simple resource listings by type. For custom KQL queries with projections
+        or complex logic, use execute_resource_graph_query() directly.
+
         Args:
             resource_type: Azure resource type (e.g., "Microsoft.Storage/storageAccounts").
             subscription: Subscription ID or name.
@@ -149,9 +219,6 @@ class AzureService:
         Returns:
             List of resources as dictionaries.
         """
-        from azure.mgmt.resourcegraph import ResourceGraphClient
-        from azure.mgmt.resourcegraph.models import QueryRequest
-
         sub_id = await self.resolve_subscription(subscription)
 
         # Build KQL query
@@ -168,22 +235,14 @@ class AzureService:
 
         query += f" | limit {limit}"
 
-        # Execute query
-        credential = self.get_credential()
-        client = ResourceGraphClient(credential)
-
-        request = QueryRequest(
-            subscriptions=[sub_id],
+        # Use the central Resource Graph query method
+        result = await self.execute_resource_graph_query(
             query=query,
+            subscriptions=[sub_id],
+            top=limit,
         )
 
-        result = client.resources(request)
-
-        # Parse results
-        if result.data:
-            return list(result.data)
-
-        return []
+        return result.get("data", [])
 
     async def get_resource(
         self,

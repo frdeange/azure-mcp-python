@@ -64,51 +64,14 @@ class ResourceGraphService(AzureService):
         Returns:
             Query results with data and metadata.
         """
-        from azure.mgmt.resourcegraph import ResourceGraphClient
-        from azure.mgmt.resourcegraph.models import (
-            QueryRequest,
-            QueryRequestOptions,
-        )
-
-        credential = self.get_credential()
-        client = ResourceGraphClient(credential)
-
-        # Build request options
-        options = QueryRequestOptions(
+        # Use the base class method for consistency
+        return await self.execute_resource_graph_query(
+            query=query,
+            subscriptions=subscriptions,
+            management_groups=management_groups,
             skip=skip,
             top=top,
         )
-
-        # Build request - use management groups if provided, else subscriptions
-        if management_groups:
-            request = QueryRequest(
-                management_groups=management_groups,
-                query=query,
-                options=options,
-            )
-        else:
-            # If no subscriptions provided, get all accessible
-            if not subscriptions:
-                subs = await self.list_subscriptions()
-                subscriptions = [s["id"] for s in subs]
-
-            request = QueryRequest(
-                subscriptions=subscriptions,
-                query=query,
-                options=options,
-            )
-
-        # Execute query
-        result = client.resources(request)
-
-        # Parse and return results
-        return {
-            "data": list(result.data) if result.data else [],
-            "count": result.count,
-            "total_records": result.total_records,
-            "skip_token": result.skip_token,
-            "result_truncated": result.result_truncated,
-        }
 
 
 @register_tool("resourcegraph")

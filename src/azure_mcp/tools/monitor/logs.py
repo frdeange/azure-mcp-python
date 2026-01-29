@@ -189,6 +189,7 @@ class MonitorLogsBatchQueryTool(AzureTool):
 
     async def execute(self, options: LogsBatchQueryOptions) -> Any:  # type: ignore[override]
         import json
+
         service = MonitorService()
         # Parse JSON string to list of queries
         queries = json.loads(options.queries_json)

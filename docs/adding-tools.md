@@ -388,12 +388,107 @@ async def handler(
 
 **You don't need to understand this** - just follow the patterns in this guide and the server handles the rest.
 
+## AzureService Base Class Methods
+
+**⚠️ CRITICAL**: Always check what methods `AzureService` provides before implementing Azure SDK calls directly. Using base class methods ensures consistency, caching, testability, and prevents architectural violations.
+
+### Available Methods
+
+| Method | Purpose | When to Use |
+|--------|---------|-------------|
+| `get_credential()` | Get Azure credential | Any Azure SDK client initialization |
+| `resolve_subscription()` | Name/GUID → subscription ID | Before any subscription-scoped query |
+| `list_subscriptions()` | Get all accessible subscriptions | Discovery, multi-subscription queries |
+| `execute_resource_graph_query()` | Run custom KQL queries | Complex queries, projections, aggregations |
+| `list_resources()` | List resources by type | Simple resource listings |
+| `get_resource()` | Get single resource | Fetch one resource by name |
+
+### Simple vs. Custom Resource Graph Queries
+
+For **simple listings** by resource type, use `list_resources()`:
+
+```python
+# Simple: List all storage accounts
+results = await self.list_resources(
+    resource_type="Microsoft.Storage/storageAccounts",
+    subscription=subscription,
+)
+```
+
+For **custom KQL queries** with projections, joins, or aggregations, use `execute_resource_graph_query()`:
+
+```python
+# Custom: Complex query with projections
+query = """
+resources
+| where type =~ 'microsoft.compute/virtualmachines'
+| project name, location, vmSize = properties.hardwareProfile.vmSize
+| order by name
+"""
+result = await self.execute_resource_graph_query(
+    query=query,
+    subscriptions=[sub_id],
+)
+return result.get("data", [])
+```
+
+## ❌ Anti-Patterns (Don't Do This)
+
+These patterns cause architectural violations and will fail the `test_architecture_patterns.py` tests.
+
+### Direct ResourceGraphClient Instantiation
+
+```python
+# ❌ WRONG - Don't create ResourceGraphClient directly
+from azure.mgmt.resourcegraph import ResourceGraphClient
+from azure.mgmt.resourcegraph.models import QueryRequest
+
+credential = self.get_credential()
+client = ResourceGraphClient(credential)
+request = QueryRequest(subscriptions=[sub_id], query=query)
+result = client.resources(request)
+
+# ✅ CORRECT - Use base class method
+result = await self.execute_resource_graph_query(
+    query=query,
+    subscriptions=[sub_id],
+)
+```
+
+### Direct SubscriptionClient Usage
+
+```python
+# ❌ WRONG - Don't create SubscriptionClient directly
+from azure.mgmt.resource import SubscriptionClient
+
+client = SubscriptionClient(credential)
+for sub in client.subscriptions.list():
+    ...
+
+# ✅ CORRECT - Use base class methods
+sub_id = await self.resolve_subscription(subscription_name_or_id)
+all_subs = await self.list_subscriptions()
+```
+
+### Direct Credential Creation
+
+```python
+# ❌ WRONG - Don't instantiate DefaultAzureCredential in services
+from azure.identity import DefaultAzureCredential
+credential = DefaultAzureCredential()
+
+# ✅ CORRECT - Use base class method
+credential = self.get_credential()
+```
+
 ## Best Practices
 
-1. **Keep tools focused** - One tool = one action
-2. **Use Resource Graph** - For listing/querying, prefer ARG over individual API calls
-3. **Document thoroughly** - Descriptions help the LLM understand when to use each tool
-4. **Validate inputs** - Use Pydantic constraints (`ge`, `le`, `min_length`, etc.)
-5. **Add tests** - Every tool needs unit tests
-6. **Avoid Optional types** - Use empty defaults for AI Foundry compatibility
-7. **Use specific types** - Use `str` instead of `Any` where possible
+1. **Check base class first** - Always use `AzureService` methods before implementing SDK calls directly
+2. **Keep tools focused** - One tool = one action
+3. **Use Resource Graph** - For listing/querying, prefer ARG over individual API calls
+4. **Document thoroughly** - Descriptions help the LLM understand when to use each tool
+5. **Validate inputs** - Use Pydantic constraints (`ge`, `le`, `min_length`, etc.)
+6. **Add tests** - Every tool needs unit tests
+7. **Avoid Optional types** - Use empty defaults for AI Foundry compatibility
+8. **Use specific types** - Use `str` instead of `Any` where possible
+9. **Run architecture tests** - `pytest tests/unit/test_architecture_patterns.py` catches pattern violations

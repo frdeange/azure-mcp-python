@@ -151,18 +151,18 @@ class TestMonitorOptionsValidation:
             query="AzureActivity | take 10",
         )
         assert options.workspace_id == "test-workspace-id"
-        assert options.timespan == "P1D"  # Default
-        assert options.top == 100  # Default
+        assert options.timespan_hours == 24  # Default
+        assert options.include_statistics is False  # Default
 
     def test_logs_query_options_timespan_default(self):
-        """Test logs query timespan defaults to P1D."""
+        """Test logs query timespan defaults to 24 hours."""
         from azure_mcp.tools.monitor.logs import LogsQueryOptions
 
         options = LogsQueryOptions(
             workspace_id="ws",
             query="query",
         )
-        assert options.timespan == "P1D"
+        assert options.timespan_hours == 24
 
     def test_metrics_query_options_validation(self):
         """Test metrics query options validation."""
@@ -170,10 +170,10 @@ class TestMonitorOptionsValidation:
 
         options = MetricsQueryOptions(
             resource_id="/subscriptions/sub/providers/test",
-            metric_names=["CpuPercentage", "MemoryPercentage"],
+            metric_names="CpuPercentage,MemoryPercentage",
         )
-        assert len(options.metric_names) == 2
-        assert options.granularity == "PT1H"  # Default
+        assert "CpuPercentage" in options.metric_names
+        assert options.interval == "PT1M"  # Default
 
     def test_activity_log_query_options(self):
         """Test activity log query options."""
@@ -181,11 +181,11 @@ class TestMonitorOptionsValidation:
 
         options = ActivityLogQueryOptions(
             subscription="my-subscription",
-            timespan="PT6H",
+            timespan_days=3,
             resource_group="my-rg",
         )
         assert options.subscription == "my-subscription"
-        assert options.timespan == "PT6H"
+        assert options.timespan_days == 3
         assert options.resource_group == "my-rg"
 
 
@@ -193,33 +193,17 @@ class TestMonitorServiceMethods:
     """Test MonitorService methods with mocks."""
 
     @pytest.mark.asyncio
-    async def test_query_logs_success(self):
-        """Test successful log query."""
+    async def test_query_logs_service_instantiation(self):
+        """Test MonitorService can be instantiated."""
         from azure_mcp.tools.monitor.service import MonitorService
 
         service = MonitorService()
 
-        # Mock the LogsQueryClient
-        mock_response = MagicMock()
-        mock_response.status = MagicMock()
-        mock_response.status.name = "SUCCESS"
-        mock_table = MagicMock()
-        mock_table.name = "PrimaryResult"
-        mock_table.columns = [MagicMock(name="Column1")]
-        mock_table.columns[0].name = "Column1"
-        mock_table.rows = [["value1"]]
-        mock_response.tables = [mock_table]
-
-        with patch.object(service, "_get_logs_client") as mock_get_client:
-            mock_client = MagicMock()
-            mock_get_client.return_value = mock_client
-
-            with patch("asyncio.to_thread", new_callable=AsyncMock) as mock_thread:
-                mock_thread.return_value = mock_response
-
-                # This would require proper mocking of the entire call chain
-                # For now, we just verify the service can be instantiated
-                assert service is not None
+        # Verify the service has the expected methods
+        assert hasattr(service, "query_logs")
+        assert hasattr(service, "list_workspaces")
+        assert hasattr(service, "list_alerts")
+        assert hasattr(service, "execute_resource_graph_query")
 
     @pytest.mark.asyncio
     async def test_list_workspaces_uses_resource_graph(self):
@@ -228,15 +212,13 @@ class TestMonitorServiceMethods:
 
         service = MonitorService()
 
-        with patch.object(
-            service, "resolve_subscription", new_callable=AsyncMock
-        ) as mock_resolve:
+        with patch.object(service, "resolve_subscription", new_callable=AsyncMock) as mock_resolve:
             mock_resolve.return_value = "sub-123"
 
             with patch.object(
-                service, "run_resource_graph_query", new_callable=AsyncMock
+                service, "execute_resource_graph_query", new_callable=AsyncMock
             ) as mock_rg:
-                mock_rg.return_value = [{"name": "workspace1"}]
+                mock_rg.return_value = {"data": [{"name": "workspace1"}], "count": 1}
 
                 result = await service.list_workspaces(
                     subscription="my-sub",
@@ -245,7 +227,7 @@ class TestMonitorServiceMethods:
                 )
 
                 assert mock_rg.called
-                assert "operationalinsights/workspaces" in mock_rg.call_args[0][0].lower()
+                assert "operationalinsights/workspaces" in mock_rg.call_args[1]["query"].lower()
 
 
 class TestMonitorSchemaCompatibility:
