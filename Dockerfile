@@ -1,7 +1,7 @@
 # Azure MCP Server - Docker image for cloud deployment
 # Optimized for Azure Container Apps
 
-FROM python:3.11-slim AS builder
+FROM python:3.12-slim AS builder
 
 WORKDIR /app
 
@@ -18,7 +18,7 @@ COPY src/ src/
 RUN pip install --no-cache-dir ".[cosmos,cost,storage,entra,monitor,rbac,communication]" uvicorn starlette
 
 # Production stage
-FROM python:3.11-slim
+FROM python:3.12-slim
 
 WORKDIR /app
 
@@ -26,7 +26,7 @@ WORKDIR /app
 RUN useradd --create-home --shell /bin/bash appuser
 
 # Copy installed packages from builder
-COPY --from=builder /usr/local/lib/python3.11/site-packages /usr/local/lib/python3.11/site-packages
+COPY --from=builder /usr/local/lib/python3.12/site-packages /usr/local/lib/python3.12/site-packages
 COPY --from=builder /usr/local/bin/uvicorn /usr/local/bin/
 
 # Copy source for module execution

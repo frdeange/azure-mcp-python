@@ -203,15 +203,15 @@ class CommunicationService(AzureService):
             "assignment_type": phone.assignment_type.value
             if hasattr(phone.assignment_type, "value")
             else str(phone.assignment_type),
-            "purchase_date": phone.purchase_date.isoformat()
-            if phone.purchase_date
-            else None,
+            "purchase_date": phone.purchase_date.isoformat() if phone.purchase_date else None,
             "cost": {
                 "amount": phone.cost.amount if phone.cost else None,
                 "currency_code": phone.cost.currency_code if phone.cost else None,
                 "billing_frequency": phone.cost.billing_frequency.value
                 if phone.cost and hasattr(phone.cost.billing_frequency, "value")
-                else str(phone.cost.billing_frequency) if phone.cost else None,
+                else str(phone.cost.billing_frequency)
+                if phone.cost
+                else None,
             },
         }
 
@@ -349,8 +349,12 @@ class CommunicationService(AzureService):
 
         return {
             "operation_id": poller.details.get("id") if poller.details else None,
-            "message_id": result.get("id") if isinstance(result, dict) else getattr(result, "id", None),
-            "status": result.get("status") if isinstance(result, dict) else getattr(result, "status", None),
+            "message_id": result.get("id")
+            if isinstance(result, dict)
+            else getattr(result, "id", None),
+            "status": result.get("status")
+            if isinstance(result, dict)
+            else getattr(result, "status", None),
         }
 
     async def get_email_status(

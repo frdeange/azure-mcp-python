@@ -136,7 +136,9 @@ class CommunicationResourceGetTool(AzureTool):
                 resource_group=opts.resource_group,
             )
             if result is None:
-                return {"error": f"Communication Services resource '{opts.resource_name}' not found"}
+                return {
+                    "error": f"Communication Services resource '{opts.resource_name}' not found"
+                }
             return result
         except Exception as e:
             raise handle_azure_error(e, resource="Communication Services") from e

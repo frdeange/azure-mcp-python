@@ -224,9 +224,7 @@ class TestCommunicationPhoneNumberListTool:
 
             result = await tool.execute(options)
 
-            mock_list.assert_called_once_with(
-                endpoint="https://mycomm.communication.azure.com"
-            )
+            mock_list.assert_called_once_with(endpoint="https://mycomm.communication.azure.com")
             assert len(result) == 1
             assert result[0]["phone_number"] == "+14255550100"
 
@@ -529,9 +527,7 @@ class TestCommunicationService:
             with patch.object(service, "resolve_subscription") as mock_resolve:
                 mock_resolve.return_value = "sub-guid-123"
                 mock_query.return_value = {
-                    "data": [
-                        {"name": "comm1", "endpoint": "comm1.communication.azure.com"}
-                    ]
+                    "data": [{"name": "comm1", "endpoint": "comm1.communication.azure.com"}]
                 }
 
                 result = await service.list_communication_resources(subscription="my-sub")
@@ -542,7 +538,10 @@ class TestCommunicationService:
                 # Verify Resource Graph was used
                 mock_query.assert_called_once()
                 call_args = mock_query.call_args
-                assert "microsoft.communication/communicationservices" in call_args.kwargs["query"].lower()
+                assert (
+                    "microsoft.communication/communicationservices"
+                    in call_args.kwargs["query"].lower()
+                )
                 assert call_args.kwargs["subscriptions"] == ["sub-guid-123"]
 
                 assert len(result) == 1
@@ -557,9 +556,7 @@ class TestCommunicationService:
             with patch.object(service, "resolve_subscription") as mock_resolve:
                 mock_resolve.return_value = "sub-guid-123"
                 mock_query.return_value = {
-                    "data": [
-                        {"name": "my-comm", "endpoint": "mycomm.communication.azure.com"}
-                    ]
+                    "data": [{"name": "my-comm", "endpoint": "mycomm.communication.azure.com"}]
                 }
 
                 result = await service.get_communication_resource(
