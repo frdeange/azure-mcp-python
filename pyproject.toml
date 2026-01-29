@@ -67,10 +67,15 @@ rbac = [
     "azure-mgmt-authorization>=4.0.0",
     "msgraph-sdk>=1.0.0",  # For Graph app role assignments
 ]
+communication = [
+    "azure-communication-sms>=1.1.0",
+    "azure-communication-email>=1.1.0",
+    "azure-communication-phonenumbers>=1.4.0",
+]
 
 # All Azure services
 all = [
-    "azure-mcp[http,storage,cosmos,keyvault,sql,monitor,cost,entra]",
+    "azure-mcp[http,storage,cosmos,keyvault,sql,monitor,cost,entra,communication]",
 ]
 
 # Development

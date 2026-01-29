@@ -234,7 +234,6 @@ class TestDefaultFactoryNotRequired:
                             f"{tool.name}: {field_name} has default_factory but is marked required"
                         )
 
-        assert not violations, (
-            "Fields with default_factory should not be required:\n"
-            + "\n".join(f"  - {v}" for v in violations)
+        assert not violations, "Fields with default_factory should not be required:\n" + "\n".join(
+            f"  - {v}" for v in violations
         )
