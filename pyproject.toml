@@ -63,6 +63,10 @@ cost = [
     "six>=1.16.0",  # Required by azure-mgmt-advisor
 ]
 entra = ["msgraph-sdk>=1.0.0"]
+rbac = [
+    "azure-mgmt-authorization>=4.0.0",
+    "msgraph-sdk>=1.0.0",  # For Graph app role assignments
+]
 
 # All Azure services
 all = [
