@@ -66,9 +66,13 @@ class LogsBatchQueryOptions(BaseModel):
         ...,
         description="The Log Analytics workspace ID (GUID).",
     )
-    queries: list[dict[str, str]] = Field(
+    queries_json: str = Field(
         ...,
-        description="List of queries. Each dict should have 'id' (identifier) and 'query' (KQL) keys.",
+        description=(
+            "JSON array of query objects. Each object must have 'id' (string identifier) "
+            "and 'query' (KQL string). Example: "
+            '[{"id":"q1","query":"AzureActivity | take 10"},{"id":"q2","query":"Heartbeat | take 5"}]'
+        ),
     )
     timespan_hours: int = Field(
         default=24,
@@ -184,9 +188,12 @@ class MonitorLogsBatchQueryTool(AzureTool):
         return LogsBatchQueryOptions
 
     async def execute(self, options: LogsBatchQueryOptions) -> Any:  # type: ignore[override]
+        import json
         service = MonitorService()
+        # Parse JSON string to list of queries
+        queries = json.loads(options.queries_json)
         return await service.query_logs_batch(
             workspace_id=options.workspace_id,
-            queries=options.queries,
+            queries=queries,
             timespan=timedelta(hours=options.timespan_hours),
         )

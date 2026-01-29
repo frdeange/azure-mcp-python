@@ -21,9 +21,9 @@ class MetricsQueryOptions(BaseModel):
         ...,
         description="The full Azure resource ID to query metrics from.",
     )
-    metric_names: list[str] = Field(
+    metric_names: str = Field(
         ...,
-        description="List of metric names to query (e.g., ['Percentage CPU', 'Network In Total']).",
+        description="Metric names to query (comma-separated, e.g., 'Percentage CPU,Network In Total').",
     )
     timespan_hours: int = Field(
         default=1,
@@ -35,9 +35,9 @@ class MetricsQueryOptions(BaseModel):
         default="PT1M",
         description="Aggregation interval in ISO 8601 format (PT1M, PT5M, PT15M, PT30M, PT1H, PT6H, PT12H, P1D).",
     )
-    aggregations: list[str] = Field(
-        default_factory=lambda: ["Average"],
-        description="Aggregation types: Average, Total, Maximum, Minimum, Count.",
+    aggregations: str = Field(
+        default="Average",
+        description="Aggregation types (comma-separated): Average, Total, Maximum, Minimum, Count.",
     )
 
 
@@ -57,9 +57,9 @@ class MetricBaselinesGetOptions(BaseModel):
         ...,
         description="The full Azure resource ID.",
     )
-    metric_names: list[str] = Field(
+    metric_names: str = Field(
         ...,
-        description="List of metric names to get baselines for.",
+        description="Metric names to get baselines for (comma-separated).",
     )
     timespan_hours: int = Field(
         default=24,
@@ -105,12 +105,15 @@ class MonitorMetricsQueryTool(AzureTool):
     async def execute(self, options: MetricsQueryOptions) -> Any:  # type: ignore[override]
         service = MonitorService()
         try:
+            # Convert comma-separated strings to lists
+            metric_names_list = [m.strip() for m in options.metric_names.split(",") if m.strip()]
+            aggregations_list = [a.strip() for a in options.aggregations.split(",") if a.strip()]
             return await service.query_metrics(
                 resource_id=options.resource_id,
-                metric_names=options.metric_names,
+                metric_names=metric_names_list,
                 timespan=timedelta(hours=options.timespan_hours),
                 interval=options.interval,
-                aggregations=options.aggregations,
+                aggregations=aggregations_list,
             )
         except Exception as e:
             raise handle_azure_error(e, resource="Metrics Query") from e
@@ -185,9 +188,11 @@ class MonitorMetricBaselinesGetTool(AzureTool):
     async def execute(self, options: MetricBaselinesGetOptions) -> Any:  # type: ignore[override]
         service = MonitorService()
         try:
+            # Convert comma-separated string to list
+            metric_names_list = [m.strip() for m in options.metric_names.split(",") if m.strip()]
             return await service.get_metric_baselines(
                 resource_id=options.resource_id,
-                metric_names=options.metric_names,
+                metric_names=metric_names_list,
                 timespan=timedelta(hours=options.timespan_hours),
                 interval=options.interval,
             )
