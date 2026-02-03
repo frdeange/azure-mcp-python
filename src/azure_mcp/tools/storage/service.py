@@ -4,10 +4,8 @@ Provides methods for managing storage accounts, blobs, containers, tables, and q
 """
 
 from __future__ import annotations
-
 import base64
 from typing import Any
-
 from azure_mcp.core.base import AzureService
 
 
@@ -528,3 +526,38 @@ class StorageService(AzureService):
                 count += 1
 
             return queues
+
+    async def delete_blob(
+        self,
+        account_name: str,
+        container_name: str,
+        blob_name: str,
+    ) -> dict[str, Any]:
+        """
+        Delete a blob from a container.
+
+        Args:
+            account_name: Name of the storage account.
+            container_name: Name of the container.
+            blob_name: Name of the blob to delete.
+
+        Returns:
+            Dict confirming deletion.
+        """
+        from azure.storage.blob.aio import BlobClient
+
+        credential = self.get_credential()
+        account_url = self._get_account_url(account_name, "blob")
+
+        async with BlobClient(
+            account_url, container_name, blob_name, credential=credential
+        ) as client:
+            # delete_snapshots="include" deletes blob and all snapshots
+            await client.delete_blob(delete_snapshots="include")
+
+            return {
+                "deleted": True,
+                "blob_name": blob_name,
+                "container": container_name,
+                "account": account_name,
+            }

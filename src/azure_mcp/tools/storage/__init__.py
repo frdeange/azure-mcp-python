@@ -5,6 +5,7 @@ Provides tools for managing Azure Storage accounts, blobs, containers, tables, a
 
 from azure_mcp.tools.storage.account import StorageAccountGetTool, StorageAccountListTool
 from azure_mcp.tools.storage.blob import (
+    StorageBlobDeleteTool,
     StorageBlobListTool,
     StorageBlobReadTool,
     StorageBlobWriteTool,
@@ -20,6 +21,7 @@ __all__ = [
     "StorageBlobListTool",
     "StorageBlobReadTool",
     "StorageBlobWriteTool",
+    "StorageBlobDeleteTool",
     "StorageTableQueryTool",
     "StorageQueueListTool",
 ]

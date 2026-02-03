@@ -1,12 +1,13 @@
 """Unit tests for Storage tools.
 
-Tests all 8 Storage tools:
+Tests all 9 Storage tools:
 - storage_account_list
 - storage_account_get
 - storage_container_list
 - storage_blob_list
 - storage_blob_read
 - storage_blob_write
+- storage_blob_delete
 - storage_table_query
 - storage_queue_list
 """
@@ -25,6 +26,8 @@ from azure_mcp.tools.storage.account import (
     StorageAccountListTool,
 )
 from azure_mcp.tools.storage.blob import (
+    StorageBlobDeleteOptions,
+    StorageBlobDeleteTool,
     StorageBlobListOptions,
     StorageBlobListTool,
     StorageBlobReadOptions,
@@ -470,6 +473,99 @@ class TestStorageBlobWriteTool:
 
         assert result["blob_name"] == "test.txt"
         assert result["size"] == 13
+
+
+# =============================================================================
+# StorageBlobDeleteOptions Tests
+# =============================================================================
+
+
+class TestStorageBlobDeleteOptions:
+    """Tests for StorageBlobDeleteOptions validation."""
+
+    def test_minimal_options(self):
+        """Test with only required fields."""
+        options = StorageBlobDeleteOptions(
+            account_name="myaccount",
+            container_name="mycontainer",
+            blob_name="myblob.txt",
+        )
+        assert options.account_name == "myaccount"
+        assert options.container_name == "mycontainer"
+        assert options.blob_name == "myblob.txt"
+
+    def test_missing_blob_name_raises(self):
+        """Test that missing blob_name raises error."""
+        with pytest.raises(ValidationError):
+            StorageBlobDeleteOptions(
+                account_name="myaccount",
+                container_name="mycontainer",
+            )
+
+    def test_missing_container_name_raises(self):
+        """Test that missing container_name raises error."""
+        with pytest.raises(ValidationError):
+            StorageBlobDeleteOptions(
+                account_name="myaccount",
+                blob_name="myblob.txt",
+            )
+
+
+# =============================================================================
+# StorageBlobDeleteTool Tests
+# =============================================================================
+
+
+class TestStorageBlobDeleteTool:
+    """Tests for StorageBlobDeleteTool."""
+
+    def test_tool_properties(self):
+        """Test tool metadata properties."""
+        tool = StorageBlobDeleteTool()
+        assert tool.name == "storage_blob_delete"
+        assert "delete" in tool.description.lower()
+        assert tool.metadata.read_only is False
+        assert tool.metadata.destructive is True
+        assert tool.metadata.idempotent is True
+
+    def test_options_schema(self):
+        """Test that options schema is valid JSON schema."""
+        tool = StorageBlobDeleteTool()
+        schema = tool.get_options_schema()
+
+        assert "properties" in schema
+        assert "account_name" in schema["properties"]
+        assert "container_name" in schema["properties"]
+        assert "blob_name" in schema["properties"]
+
+    @pytest.mark.asyncio
+    async def test_execute_deletes_blob(self):
+        """Test deleting a blob."""
+        tool = StorageBlobDeleteTool()
+        options = StorageBlobDeleteOptions(
+            account_name="myaccount",
+            container_name="mycontainer",
+            blob_name="test.txt",
+        )
+
+        mock_result = {
+            "deleted": True,
+            "blob_name": "test.txt",
+            "container": "mycontainer",
+            "account": "myaccount",
+        }
+
+        with patch(
+            "azure_mcp.tools.storage.service.StorageService.delete_blob",
+            new_callable=AsyncMock,
+            return_value=mock_result,
+        ):
+            result = await tool.execute(options)
+
+        assert result["deleted"] is True
+        assert result["blob_name"] == "test.txt"
+        assert result["container"] == "mycontainer"
+        assert result["account"] == "myaccount"
 
 
 # =============================================================================

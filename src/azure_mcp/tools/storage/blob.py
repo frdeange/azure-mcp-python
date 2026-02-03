@@ -239,3 +239,63 @@ class StorageBlobWriteTool(AzureTool):
             )
         except Exception as e:
             raise handle_azure_error(e, resource="Storage Blob") from e
+
+
+class StorageBlobDeleteOptions(BaseModel):
+    """Options for deleting a blob."""
+
+    account_name: str = Field(
+        ...,
+        description="Name of the storage account.",
+    )
+    container_name: str = Field(
+        ...,
+        description="Name of the container.",
+    )
+    blob_name: str = Field(
+        ...,
+        description="Name of the blob to delete.",
+    )
+
+
+@register_tool("storage", "blob")
+class StorageBlobDeleteTool(AzureTool):
+    """Tool for deleting a blob."""
+
+    @property
+    def name(self) -> str:
+        return "storage_blob_delete"
+
+    @property
+    def description(self) -> str:
+        return (
+            "Delete a blob from an Azure Storage container. "
+            "This operation is destructive and cannot be undone "
+            "(unless soft-delete is enabled on the storage account). "
+            "Also deletes all snapshots of the blob."
+        )
+
+    @property
+    def metadata(self) -> ToolMetadata:
+        return ToolMetadata(
+            read_only=False,
+            destructive=True,  # Requires confirmation
+            idempotent=True,   # Safe to retry
+        )
+
+    @property
+    def options_model(self) -> type[BaseModel]:
+        return StorageBlobDeleteOptions
+
+    async def execute(self, options: BaseModel) -> Any:
+        """Execute the blob delete operation."""
+        opts = StorageBlobDeleteOptions.model_validate(options.model_dump())
+        service = StorageService()
+        try:
+            return await service.delete_blob(
+                account_name=opts.account_name,
+                container_name=opts.container_name,
+                blob_name=opts.blob_name,
+            )
+        except Exception as e:
+            raise handle_azure_error(e, resource="Storage Blob") from e
