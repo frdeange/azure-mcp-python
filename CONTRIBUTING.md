@@ -6,7 +6,7 @@ Thank you for your interest in contributing to Azure MCP Server!
 
 ### Prerequisites
 
-- Python 3.11+
+- Python 3.12+
 - Azure CLI (`az login` for authentication)
 - Git
 
@@ -91,7 +91,7 @@ test: add keyvault secret tests
 
 ## Adding a New Tool
 
-See [docs/developing-tools.md](docs/developing-tools.md) for the complete guide.
+See [docs/adding-tools.md](docs/adding-tools.md) for the complete guide.
 
 ### Quick Summary
 

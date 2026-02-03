@@ -240,6 +240,10 @@ az role assignment create --assignee $IDENTITY --role "Storage Queue Data Contri
 
 # Azure Monitor tools
 az role assignment create --assignee $IDENTITY --role "Monitoring Reader" --scope $SUB
+
+# Azure AI Search tools (assign per Search Service for data plane access)
+# az role assignment create --assignee $IDENTITY --role "Search Index Data Reader" --scope $SEARCH_SERVICE_ID
+# az role assignment create --assignee $IDENTITY --role "Search Index Data Contributor" --scope $SEARCH_SERVICE_ID
 ```
 
 #### Summary of Required Roles
@@ -255,6 +259,8 @@ az role assignment create --assignee $IDENTITY --role "Monitoring Reader" --scop
 | Storage Table Data Contributor | Subscription | `storage_table_*` |
 | Storage Queue Data Contributor | Subscription | `storage_queue_*` |
 | Monitoring Reader | Subscription | `monitor_*` |
+| Search Index Data Reader | Search Service | `search_query`, `search_document_get` |
+| Search Index Data Contributor | Search Service | `search_document_upload`, `search_document_*` |
 
 ### 6. Cosmos DB Data Plane Roles (Special Case)
 

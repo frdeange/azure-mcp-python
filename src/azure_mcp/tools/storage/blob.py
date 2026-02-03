@@ -280,7 +280,7 @@ class StorageBlobDeleteTool(AzureTool):
         return ToolMetadata(
             read_only=False,
             destructive=True,  # Requires confirmation
-            idempotent=True,   # Safe to retry
+            idempotent=True,  # Safe to retry
         )
 
     @property

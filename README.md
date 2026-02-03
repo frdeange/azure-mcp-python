@@ -1,6 +1,6 @@
 # 🔷 Azure MCP Server (Python)
 
-[![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
+[![Python 3.12+](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![MCP 1.0](https://img.shields.io/badge/MCP-1.0-green.svg)](https://modelcontextprotocol.io/)
 [![Azure](https://img.shields.io/badge/Azure-Ready-0078D4.svg)](https://azure.microsoft.com/)
@@ -14,10 +14,11 @@ A powerful **Python implementation** of the Model Context Protocol (MCP) server 
 | Feature | Description |
 |---------|-------------|
 | 🔐 **Secure Authentication** | Azure Identity with DefaultAzureCredential chain |
-| 🛠️ **73 Azure Tools** | Comprehensive coverage across 9 Azure service families |
+| 🛠️ **94 Azure Tools** | Comprehensive coverage across 10 Azure service families |
 | 💰 **Cost Management** | Query costs, forecasts, budgets *(NOT in Microsoft's .NET version)* |
 | 👥 **Entra ID** | Users, groups, apps via Microsoft Graph *(NOT in Microsoft's .NET version)* |
 | 📱 **Communication Services** | SMS, Email, Phone Numbers *(NOT in Microsoft's .NET version)* |
+| 🔎 **Azure AI Search** | Full-text search, indexing, document management *(NOT in Microsoft's .NET version)* |
 | ☁️ **AI Foundry Ready** | Compatible with Azure AI Foundry Agent Service |
 | 🧩 **Modular Design** | Install only the Azure services you need |
 | 📚 **Well Documented** | Comprehensive guides for users and contributors |
@@ -66,7 +67,7 @@ azure-mcp
 
 ---
 
-## 🛠️ Available Tools (73 Total)
+## 🛠️ Available Tools (94 Total)
 
 ### 📊 Summary
 
@@ -74,14 +75,15 @@ azure-mcp
 |--------|-------|------|-------|-------------|
 | 🔍 Resource Graph | 1 | 1 | 0 | Query Azure resources with KQL |
 | 🗄️ Cosmos DB | 7 | 6 | 1 | Database, container, and item operations |
-| 💰 Cost Management | 8 | 8 | 0 | Costs, forecasts, budgets, recommendations |
-| 📦 Storage | 9 | 7 | 2 | Blobs, queues, tables, accounts |
+| 💰 Cost Management | 7 | 7 | 0 | Costs, forecasts, budgets, recommendations |
+| 📦 Storage | 9 | 6 | 3 | Blobs, queues, tables, accounts |
 | 👥 Entra ID | 18 | 18 | 0 | Users, groups, apps, service principals |
-| 📈 Monitor | 16 | 16 | 0 | Metrics, alerts, action groups, log profiles |
+| 📈 Monitor | 17 | 17 | 0 | Metrics, alerts, logs, autoscale |
 | 🔬 App Insights | 8 | 8 | 0 | Logs, metrics, availability, exceptions |
 | 🔑 RBAC | 8 | 8 | 0 | Roles, assignments, permissions |
 | 📱 Communication | 7 | 4 | 3 | SMS, Email, Phone Numbers |
-| **Total** | **73** | **65** | **8** | |
+| 🔎 Azure AI Search | 12 | 9 | 3 | Full-text search, indexing, documents |
+| **Total** | **94** | **84** | **10** | |
 
 ---
 
@@ -121,19 +123,18 @@ Query items from the users container where status = 'active'
 </details>
 
 <details>
-<summary><h3>💰 Cost Management (8 tools) ⭐ Exclusive</h3></summary>
+<summary><h3>💰 Cost Management (7 tools) ⭐ Exclusive</h3></summary>
 
 > 🌟 **Not available in Microsoft's .NET Azure MCP Server!**
 
 | Tool | Type | Description |
 |------|------|-------------|
-| \`cost_query\` | 📖 Read | Query cost and usage data with flexible grouping |
-| \`cost_forecast\` | 📖 Read | Get cost forecasts for future periods |
-| \`cost_usage_get\` | 📖 Read | Get detailed usage data for a time period |
-| \`cost_budgets_list\` | 📖 Read | List all budgets in a scope |
-| \`cost_budgets_get\` | 📖 Read | Get budget details including alerts |
-| \`cost_recommendations_list\` | 📖 Read | List Azure Advisor cost recommendations |
-| \`cost_recommendations_get\` | 📖 Read | Get details of a specific recommendation |
+| `cost_query` | 📖 Read | Query cost and usage data with flexible grouping |
+| `cost_forecast` | 📖 Read | Get cost forecasts for future periods |
+| `cost_usage_by_resource` | 📖 Read | Get detailed usage data by resource |
+| `cost_budgets_list` | 📖 Read | List all budgets in a scope |
+| `cost_budgets_get` | 📖 Read | Get budget details including alerts |
+| `cost_recommendations` | 📖 Read | List Azure Advisor cost recommendations |
 | \`cost_exports_list\` | 📖 Read | List scheduled cost exports |
 
 **Example:**
@@ -156,8 +157,8 @@ List all budgets that are over 80% consumed
 | \`storage_blob_list\` | 📖 Read | List blobs in a container |
 | \`storage_blob_read\` | 📖 Read | Read blob content |
 | \`storage_blob_write\` | ✏️ Write | Write content to a blob |
-| \`storage_queue_list\` | 📖 Read | List queues in a storage account |
-| \`storage_table_list\` | 📖 Read | List tables in a storage account |
+| `storage_blob_delete` | ✏️ Write | Delete a blob from a container |
+| `storage_queue_list` | 📖 Read | List queues in a storage account |
 | \`storage_table_query\` | 📖 Read | Query table entities |
 
 **Example:**
@@ -204,7 +205,7 @@ Show me all app registrations created this year
 </details>
 
 <details>
-<summary><h3>📈 Monitor (16 tools)</h3></summary>
+<summary><h3>📈 Monitor (17 tools)</h3></summary>
 
 | Tool | Type | Description |
 |------|------|-------------|
@@ -305,6 +306,36 @@ Check the status of email message abc-123
 
 </details>
 
+<details>
+<summary><h3>🔎 Azure AI Search (12 tools) ⭐ Exclusive</h3></summary>
+
+> 🌟 **Not available in Microsoft's .NET Azure MCP Server!**
+
+| Tool | Type | Description |
+|------|------|-------------|
+| \`search_service_list\` | 📖 Read | List Azure AI Search services |
+| \`search_service_get\` | 📖 Read | Get search service details |
+| \`search_index_list\` | 📖 Read | List indexes in a search service |
+| \`search_index_get\` | 📖 Read | Get index schema and settings |
+| \`search_index_stats\` | 📖 Read | Get index statistics (document count, size) |
+| \`search_query\` | 📖 Read | Execute full-text search queries |
+| \`search_suggest\` | 📖 Read | Get search suggestions |
+| \`search_autocomplete\` | 📖 Read | Get autocomplete suggestions |
+| \`search_document_get\` | 📖 Read | Retrieve a document by key |
+| \`search_document_upload\` | ✏️ Write | Upload documents to an index |
+| \`search_document_merge\` | ✏️ Write | Merge/update documents in an index |
+| \`search_document_delete\` | ✏️ Write | Delete documents from an index |
+
+**Example:**
+\`\`\`
+Search for "machine learning" in my knowledge base
+Get the schema of my products index
+Upload new documents to the search index
+Find all search services in my subscription
+\`\`\`
+
+</details>
+
 ---
 
 ## 🌐 Deployment Options
@@ -356,6 +387,7 @@ pip install azure-mcp[entra]           # Entra ID tools
 pip install azure-mcp[monitor]         # Monitor + App Insights tools
 pip install azure-mcp[rbac]            # RBAC tools
 pip install azure-mcp[communication]   # Communication Services tools
+pip install azure-mcp[search]          # Azure AI Search tools
 
 # Multiple services
 pip install azure-mcp[cosmos,cost,storage]
@@ -426,6 +458,7 @@ Open in VS Code and click "Reopen in Container" when prompted. Everything is pre
 - [x] Application Insights tools
 - [x] RBAC tools
 - [x] Communication Services (Phase 1) ⭐
+- [x] Azure AI Search tools ⭐
 
 ### 🔜 Planned
 - [ ] Communication Services (Phase 2: WhatsApp, Chat, Rooms, Call Automation)
