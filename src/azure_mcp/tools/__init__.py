@@ -15,6 +15,7 @@ from azure_mcp.tools import (
     monitor,
     rbac,
     resourcegraph,
+    search,
     storage,
 )
 
@@ -27,5 +28,6 @@ __all__ = [
     "monitor",
     "rbac",
     "resourcegraph",
+    "search",
     "storage",
 ]

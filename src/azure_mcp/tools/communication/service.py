@@ -215,9 +215,7 @@ class CommunicationService(AzureService):
                 "assignment_type": phone.assignment_type.value
                 if hasattr(phone.assignment_type, "value")
                 else str(phone.assignment_type),
-                "purchase_date": phone.purchase_date.isoformat()
-                if phone.purchase_date
-                else None,
+                "purchase_date": phone.purchase_date.isoformat() if phone.purchase_date else None,
                 "cost": {
                     "amount": phone.cost.amount if phone.cost else None,
                     "currency_code": phone.cost.currency_code if phone.cost else None,

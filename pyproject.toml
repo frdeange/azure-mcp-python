@@ -71,10 +71,14 @@ communication = [
     "azure-communication-email==1.1.0",
     "azure-communication-phonenumbers==1.4.0",
 ]
+search = [
+    "azure-search-documents==11.6.0",
+    "aiohttp>=3.8.0",  # Required for async search operations
+]
 
 # All Azure services
 all = [
-    "azure-mcp[http,storage,cosmos,keyvault,sql,monitor,cost,entra,communication]",
+    "azure-mcp[http,storage,cosmos,keyvault,sql,monitor,cost,entra,communication,search]",
 ]
 
 # Development
