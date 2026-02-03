@@ -322,6 +322,18 @@ Default TTLs:
 4. **Register**: Import in `src/azure_mcp/tools/__init__.py`
 5. **Test**: Add tests in `tests/unit/tools/test_{family}.py`
 6. **Document**: Update relevant docs if needed
+7. **⚠️ UPDATE DOCKERFILE**: Add your new extra to the `pip install` line!
+
+### ⚠️ CRITICAL: Dockerfile Update (FREQUENTLY FORGOTTEN!)
+
+When adding a new tool family with new dependencies, you **MUST** update the `Dockerfile`:
+
+```dockerfile
+# Line ~18 - ADD YOUR NEW EXTRA HERE!
+RUN pip install --no-cache-dir ".[cosmos,cost,storage,entra,monitor,rbac,communication,search,YOUR_NEW_EXTRA]" uvicorn starlette
+```
+
+**Without this, deployment will fail with `ModuleNotFoundError`!**
 
 ### Running Tests
 

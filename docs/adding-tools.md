@@ -598,3 +598,67 @@ credential = self.get_credential()
 8. **Avoid Optional types** - Use empty defaults for AI Foundry compatibility
 9. **Use specific types** - Use `str` instead of `Any` where possible
 10. **Run architecture tests** - `pytest tests/unit/test_architecture_patterns.py` catches pattern violations
+
+## ⚠️ Deployment Checklist
+
+**CRITICAL**: When adding a new tool family, complete ALL these steps before considering the work done:
+
+### Step 1: Update Dockerfile ⚡ FREQUENTLY FORGOTTEN!
+
+The `Dockerfile` contains a hardcoded list of extras to install. **You MUST add your new extra**:
+
+```dockerfile
+# Line ~18 in Dockerfile - ADD YOUR EXTRA HERE!
+RUN pip install --no-cache-dir ".[cosmos,cost,storage,entra,monitor,rbac,communication,search,YOUR_NEW_EXTRA]" uvicorn starlette
+```
+
+**Without this, the deployed MCP will fail with `ModuleNotFoundError: No module named 'azure.your_sdk'`**
+
+### Step 2: Update pyproject.toml
+
+Add your dependencies as an optional extra AND include it in `all`:
+
+```toml
+[project.optional-dependencies]
+your_family = ["azure-your-sdk>=1.0.0"]
+all = [
+    # ... existing ...
+    "azure-your-sdk>=1.0.0",  # ADD HERE TOO
+]
+```
+
+### Step 3: Update RBAC Allowed Roles (if needed)
+
+If your tools need data plane access, add the required roles to `src/azure_mcp/tools/rbac/service.py`:
+
+```python
+ALLOWED_RBAC_ROLES: set[str] = {
+    # ... existing roles ...
+    # Your Service - Data Plane
+    "Your Service Data Reader",
+    "Your Service Data Contributor",
+}
+```
+
+### Step 4: Document Required Permissions
+
+Update the README or create a doc noting what Azure RBAC roles the MCP's Managed Identity needs:
+
+| Service | Required Role | Scope |
+|---------|---------------|-------|
+| Your Service | Data Reader | Resource level |
+
+### Step 5: Verification Checklist
+
+Before pushing:
+
+- [ ] Tool files created in `src/azure_mcp/tools/{family}/`
+- [ ] Tools exported in `src/azure_mcp/tools/{family}/__init__.py`
+- [ ] Family imported in `src/azure_mcp/tools/__init__.py`
+- [ ] Dependencies added to `pyproject.toml` (both extra AND `all`)
+- [ ] **Dockerfile updated with new extra** ⚠️
+- [ ] RBAC roles added if needed
+- [ ] Unit tests created and passing
+- [ ] Architecture tests passing: `pytest tests/unit/test_architecture_patterns.py`
+- [ ] Schema tests passing: `pytest tests/unit/test_schema_compatibility.py`
+

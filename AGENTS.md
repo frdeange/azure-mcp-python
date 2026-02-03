@@ -110,3 +110,48 @@ class MyTool(AzureTool):
 - Run `pytest tests/unit/test_schema_compatibility.py` to verify schemas
 - Run `pytest tests/unit/test_architecture_patterns.py` to validate patterns
 - **Use base class methods** (`execute_resource_graph_query()`, `resolve_subscription()`, `get_credential()`) - never instantiate SDK clients directly
+
+## ⚠️ CRITICAL: Deployment Checklist
+
+When adding a new tool family (e.g., `search`, `keyvault`), you **MUST** complete these steps:
+
+### 1. Update Dockerfile (REQUIRED!)
+
+Add your new extra to the `pip install` line in `Dockerfile`:
+
+```dockerfile
+# ❌ BEFORE - missing new 'search' extra
+RUN pip install --no-cache-dir ".[cosmos,cost,storage,entra,monitor,rbac,communication]" uvicorn starlette
+
+# ✅ AFTER - includes new 'search' extra  
+RUN pip install --no-cache-dir ".[cosmos,cost,storage,entra,monitor,rbac,communication,search]" uvicorn starlette
+```
+
+**This is forgotten frequently!** Without this, the deployed MCP will fail with `ModuleNotFoundError`.
+
+### 2. Update RBAC Allowed Roles (if needed)
+
+If your tools need data plane access (most do), add roles to `src/azure_mcp/tools/rbac/service.py`:
+
+```python
+ALLOWED_RBAC_ROLES: set[str] = {
+    # ... existing roles ...
+    # Azure AI Search - Data Plane (example)
+    "Search Index Data Reader",
+    "Search Index Data Contributor",
+}
+```
+
+### 3. Document Required Permissions
+
+The MCP's Managed Identity needs permissions to use your tools. Document what roles are needed:
+
+| Service | Required Role | Scope |
+|---------|---------------|-------|
+| Azure AI Search | Search Index Data Reader | Search Service |
+| Cosmos DB | Cosmos DB Built-in Data Reader | Cosmos Account |
+| Storage | Storage Blob Data Reader | Storage Account |
+| Key Vault | Key Vault Secrets User | Key Vault |
+
+**Note**: The MCP cannot assign roles to itself. Users must pre-assign these roles or use a bootstrap script.
+
