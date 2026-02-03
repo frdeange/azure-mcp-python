@@ -202,12 +202,12 @@ class SearchService(AzureService):
                 field_dict: dict[str, Any] = {
                     "name": field.name,
                     "type": str(field.type),
-                    "searchable": field.searchable,
-                    "filterable": field.filterable,
-                    "sortable": field.sortable,
-                    "facetable": field.facetable,
-                    "key": field.key,
-                    "retrievable": field.retrievable,
+                    "searchable": getattr(field, "searchable", None),
+                    "filterable": getattr(field, "filterable", None),
+                    "sortable": getattr(field, "sortable", None),
+                    "facetable": getattr(field, "facetable", None),
+                    "key": getattr(field, "key", None),
+                    "retrievable": getattr(field, "retrievable", None) or not getattr(field, "hidden", False),
                 }
                 if field.analyzer_name:
                     field_dict["analyzer"] = field.analyzer_name
