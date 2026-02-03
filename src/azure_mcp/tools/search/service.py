@@ -207,7 +207,8 @@ class SearchService(AzureService):
                     "sortable": getattr(field, "sortable", None),
                     "facetable": getattr(field, "facetable", None),
                     "key": getattr(field, "key", None),
-                    "retrievable": getattr(field, "retrievable", None) or not getattr(field, "hidden", False),
+                    "retrievable": getattr(field, "retrievable", None)
+                    or not getattr(field, "hidden", False),
                 }
                 if field.analyzer_name:
                     field_dict["analyzer"] = field.analyzer_name

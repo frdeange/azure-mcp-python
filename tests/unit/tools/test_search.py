@@ -841,9 +841,7 @@ class TestSearchService:
                 "azure.search.documents.indexes.aio.SearchIndexClient",
                 MockSearchIndexClient,
             ):
-                result = await service.list_indexes(
-                    endpoint="https://mysearch.search.windows.net"
-                )
+                result = await service.list_indexes(endpoint="https://mysearch.search.windows.net")
 
                 assert len(result) == 1
                 assert result[0]["name"] == "index1"

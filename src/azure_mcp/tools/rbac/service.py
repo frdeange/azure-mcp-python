@@ -45,6 +45,10 @@ ALLOWED_RBAC_ROLES: set[str] = {
     "Key Vault Crypto User",
     "Key Vault Crypto Officer",
     "Key Vault Certificates Officer",
+    # Azure AI Search - Data Plane
+    "Search Index Data Reader",
+    "Search Index Data Contributor",
+    "Search Service Contributor",
     # Cost Management
     "Cost Management Reader",
     "Cost Management Contributor",
