@@ -13,11 +13,12 @@ This document provides essential context for AI coding assistants working on thi
 1. **Use Resource Graph** for listing resources (not management API)
 2. **Pydantic everywhere** for options validation and schema generation
 3. **Async/await** for all Azure operations
-4. **Handle errors** with `handle_azure_error()` wrapper
-5. **Register tools** with `@register_tool("family", "subgroup")` decorator
-6. **AI Foundry compatible schemas** - NO `str | None` or `list | None` patterns (see below)
-7. **Use fastmcp** for MCP server (`fastmcp>=2.14.0`)
-8. **⚠️ CHECK BASE CLASS FIRST** - Always use `AzureService` methods before implementing SDK calls directly. Run `pytest tests/unit/test_architecture_patterns.py` to validate.
+4. **Async-first SDKs** - Use `.aio` modules when available; wrap sync with `asyncio.to_thread()` otherwise
+5. **Handle errors** with `handle_azure_error()` wrapper
+6. **Register tools** with `@register_tool("family", "subgroup")` decorator
+7. **AI Foundry compatible schemas** - NO `str | None` or `list | None` patterns (see below)
+8. **Use fastmcp** for MCP server (`fastmcp>=2.14.0`)
+9. **⚠️ CHECK BASE CLASS FIRST** - Always use `AzureService` methods before implementing SDK calls directly. Run `pytest tests/unit/test_architecture_patterns.py` to validate.
 
 ## ⚠️ AI Foundry Schema Compatibility
 
@@ -105,6 +106,7 @@ class MyTool(AzureTool):
 - Add tests in `tests/unit/tools/`
 - Use `ToolMetadata(read_only=False, requires_confirmation=True)` for write ops
 - **Use `str = ""` NOT `str | None`** for optional fields (AI Foundry compatibility)
+- **Use `.aio` SDK modules** when available for non-blocking I/O (see `docs/adding-tools.md`)
 - Run `pytest tests/unit/test_schema_compatibility.py` to verify schemas
 - Run `pytest tests/unit/test_architecture_patterns.py` to validate patterns
 - **Use base class methods** (`execute_resource_graph_query()`, `resolve_subscription()`, `get_credential()`) - never instantiate SDK clients directly

@@ -2,6 +2,9 @@
 
 Provides CommunicationService for Azure Communication Services operations.
 Uses AAD authentication only (DefaultAzureCredential) for security.
+
+Architecture: Uses async SDK clients (.aio modules) for non-blocking I/O.
+See Issue #78 for async-first architecture decision.
 """
 
 from __future__ import annotations
@@ -15,8 +18,17 @@ class CommunicationService(AzureService):
     """
     Service for Azure Communication Services operations.
 
-    Uses azure-communication-* SDKs with AAD authentication.
+    Uses azure-communication-* async SDKs (.aio) with AAD authentication.
     Resource discovery is done via Resource Graph (base class methods).
+
+    Architecture Note:
+        All Communication Services SDKs have async versions available:
+        - azure.communication.email.aio.EmailClient
+        - azure.communication.sms.aio.SmsClient
+        - azure.communication.phonenumbers.aio.PhoneNumbersClient
+
+        Using async clients prevents blocking the event loop during
+        long-running operations like email sending (2-5 seconds).
     """
 
     # -------------------------------------------------------------------------
@@ -114,7 +126,7 @@ class CommunicationService(AzureService):
         return data[0] if data else None
 
     # -------------------------------------------------------------------------
-    # Phone Numbers
+    # Phone Numbers (async)
     # -------------------------------------------------------------------------
 
     async def list_phone_numbers(
@@ -131,36 +143,36 @@ class CommunicationService(AzureService):
         Returns:
             List of phone numbers with capabilities.
         """
-        from azure.communication.phonenumbers import PhoneNumbersClient
+        from azure.communication.phonenumbers.aio import PhoneNumbersClient
 
         credential = self.get_credential()
-        client = PhoneNumbersClient(endpoint, credential)
-
         phone_numbers = []
-        for phone in client.list_purchased_phone_numbers():
-            phone_numbers.append(
-                {
-                    "phone_number": phone.phone_number,
-                    "country_code": phone.country_code,
-                    "phone_number_type": phone.phone_number_type.value
-                    if hasattr(phone.phone_number_type, "value")
-                    else str(phone.phone_number_type),
-                    "capabilities": {
-                        "calling": phone.capabilities.calling.value
-                        if hasattr(phone.capabilities.calling, "value")
-                        else str(phone.capabilities.calling),
-                        "sms": phone.capabilities.sms.value
-                        if hasattr(phone.capabilities.sms, "value")
-                        else str(phone.capabilities.sms),
-                    },
-                    "assignment_type": phone.assignment_type.value
-                    if hasattr(phone.assignment_type, "value")
-                    else str(phone.assignment_type),
-                    "purchase_date": phone.purchase_date.isoformat()
-                    if phone.purchase_date
-                    else None,
-                }
-            )
+
+        async with PhoneNumbersClient(endpoint, credential) as client:
+            async for phone in client.list_purchased_phone_numbers():
+                phone_numbers.append(
+                    {
+                        "phone_number": phone.phone_number,
+                        "country_code": phone.country_code,
+                        "phone_number_type": phone.phone_number_type.value
+                        if hasattr(phone.phone_number_type, "value")
+                        else str(phone.phone_number_type),
+                        "capabilities": {
+                            "calling": phone.capabilities.calling.value
+                            if hasattr(phone.capabilities.calling, "value")
+                            else str(phone.capabilities.calling),
+                            "sms": phone.capabilities.sms.value
+                            if hasattr(phone.capabilities.sms, "value")
+                            else str(phone.capabilities.sms),
+                        },
+                        "assignment_type": phone.assignment_type.value
+                        if hasattr(phone.assignment_type, "value")
+                        else str(phone.assignment_type),
+                        "purchase_date": phone.purchase_date.isoformat()
+                        if phone.purchase_date
+                        else None,
+                    }
+                )
 
         return phone_numbers
 
@@ -179,44 +191,46 @@ class CommunicationService(AzureService):
         Returns:
             Phone number details with capabilities.
         """
-        from azure.communication.phonenumbers import PhoneNumbersClient
+        from azure.communication.phonenumbers.aio import PhoneNumbersClient
 
         credential = self.get_credential()
-        client = PhoneNumbersClient(endpoint, credential)
 
-        phone = client.get_purchased_phone_number(phone_number)
+        async with PhoneNumbersClient(endpoint, credential) as client:
+            phone = await client.get_purchased_phone_number(phone_number)
 
-        return {
-            "phone_number": phone.phone_number,
-            "country_code": phone.country_code,
-            "phone_number_type": phone.phone_number_type.value
-            if hasattr(phone.phone_number_type, "value")
-            else str(phone.phone_number_type),
-            "capabilities": {
-                "calling": phone.capabilities.calling.value
-                if hasattr(phone.capabilities.calling, "value")
-                else str(phone.capabilities.calling),
-                "sms": phone.capabilities.sms.value
-                if hasattr(phone.capabilities.sms, "value")
-                else str(phone.capabilities.sms),
-            },
-            "assignment_type": phone.assignment_type.value
-            if hasattr(phone.assignment_type, "value")
-            else str(phone.assignment_type),
-            "purchase_date": phone.purchase_date.isoformat() if phone.purchase_date else None,
-            "cost": {
-                "amount": phone.cost.amount if phone.cost else None,
-                "currency_code": phone.cost.currency_code if phone.cost else None,
-                "billing_frequency": phone.cost.billing_frequency.value
-                if phone.cost and hasattr(phone.cost.billing_frequency, "value")
-                else str(phone.cost.billing_frequency)
-                if phone.cost
+            return {
+                "phone_number": phone.phone_number,
+                "country_code": phone.country_code,
+                "phone_number_type": phone.phone_number_type.value
+                if hasattr(phone.phone_number_type, "value")
+                else str(phone.phone_number_type),
+                "capabilities": {
+                    "calling": phone.capabilities.calling.value
+                    if hasattr(phone.capabilities.calling, "value")
+                    else str(phone.capabilities.calling),
+                    "sms": phone.capabilities.sms.value
+                    if hasattr(phone.capabilities.sms, "value")
+                    else str(phone.capabilities.sms),
+                },
+                "assignment_type": phone.assignment_type.value
+                if hasattr(phone.assignment_type, "value")
+                else str(phone.assignment_type),
+                "purchase_date": phone.purchase_date.isoformat()
+                if phone.purchase_date
                 else None,
-            },
-        }
+                "cost": {
+                    "amount": phone.cost.amount if phone.cost else None,
+                    "currency_code": phone.cost.currency_code if phone.cost else None,
+                    "billing_frequency": phone.cost.billing_frequency.value
+                    if phone.cost and hasattr(phone.cost.billing_frequency, "value")
+                    else str(phone.cost.billing_frequency)
+                    if phone.cost
+                    else None,
+                },
+            }
 
     # -------------------------------------------------------------------------
-    # SMS
+    # SMS (async)
     # -------------------------------------------------------------------------
 
     async def send_sms(
@@ -242,10 +256,9 @@ class CommunicationService(AzureService):
         Returns:
             List of send results for each recipient.
         """
-        from azure.communication.sms import SmsClient
+        from azure.communication.sms.aio import SmsClient
 
         credential = self.get_credential()
-        client = SmsClient(endpoint, credential)
 
         # Build options
         send_options = {}
@@ -254,26 +267,27 @@ class CommunicationService(AzureService):
         if tag:
             send_options["tag"] = tag
 
-        responses = client.send(
-            from_=from_number,
-            to=to,
-            message=message,
-            **send_options,
-        )
+        async with SmsClient(endpoint, credential) as client:
+            responses = await client.send(
+                from_=from_number,
+                to=to,
+                message=message,
+                **send_options,
+            )
 
-        return [
-            {
-                "to": response.to,
-                "message_id": response.message_id,
-                "successful": response.successful,
-                "http_status_code": response.http_status_code,
-                "error_message": response.error_message if not response.successful else None,
-            }
-            for response in responses
-        ]
+            return [
+                {
+                    "to": response.to,
+                    "message_id": response.message_id,
+                    "successful": response.successful,
+                    "http_status_code": response.http_status_code,
+                    "error_message": response.error_message if not response.successful else None,
+                }
+                for response in responses
+            ]
 
     # -------------------------------------------------------------------------
-    # Email
+    # Email (async)
     # -------------------------------------------------------------------------
 
     async def send_email(
@@ -292,6 +306,10 @@ class CommunicationService(AzureService):
         """
         Send an email message.
 
+        Uses async EmailClient with AsyncLROPoller for non-blocking operation.
+        Email sending typically takes 2-5 seconds; async prevents blocking
+        other requests during this time.
+
         Args:
             endpoint: Communication Services endpoint.
             from_address: Sender email (must be from verified domain).
@@ -305,20 +323,14 @@ class CommunicationService(AzureService):
             reply_to: List of reply-to addresses.
 
         Returns:
-            Send operation result with operation ID.
+            Send operation result with operation ID and status.
         """
-        from azure.communication.email import EmailClient
+        from azure.communication.email.aio import EmailClient
 
         credential = self.get_credential()
-        client = EmailClient(endpoint, credential)
-
-        # Build sender address with optional display name
-        sender = from_address
-        if sender_name:
-            sender = f"{sender_name} <{from_address}>"
 
         # Build recipients
-        recipients = {
+        recipients: dict[str, Any] = {
             "to": [{"address": addr} for addr in to],
         }
         if cc:
@@ -327,14 +339,14 @@ class CommunicationService(AzureService):
             recipients["bcc"] = [{"address": addr} for addr in bcc]
 
         # Build content
-        content = {"subject": subject}
+        content: dict[str, str] = {"subject": subject}
         if is_html:
             content["html"] = body
         else:
             content["plainText"] = body
 
         # Build message
-        message = {
+        message: dict[str, Any] = {
             "senderAddress": from_address,
             "recipients": recipients,
             "content": content,
@@ -343,19 +355,26 @@ class CommunicationService(AzureService):
         if reply_to:
             message["replyTo"] = [{"address": addr} for addr in reply_to]
 
-        # Send and get operation
-        poller = client.begin_send(message)
-        result = poller.result()
+        # Send using async client with context manager
+        async with EmailClient(endpoint, credential) as client:
+            # begin_send returns AsyncLROPoller
+            poller = await client.begin_send(message)
+            # await result() to get the final status without blocking
+            result = await poller.result()
 
-        return {
-            "operation_id": poller.details.get("id") if poller.details else None,
-            "message_id": result.get("id")
-            if isinstance(result, dict)
-            else getattr(result, "id", None),
-            "status": result.get("status")
-            if isinstance(result, dict)
-            else getattr(result, "status", None),
-        }
+            # The result contains the operation_id and status
+            # Note: In the Email SDK, the 'id' in result is the operation/message ID
+            return {
+                "operation_id": result.get("id")
+                if isinstance(result, dict)
+                else getattr(result, "id", None),
+                "message_id": result.get("id")
+                if isinstance(result, dict)
+                else getattr(result, "id", None),
+                "status": result.get("status")
+                if isinstance(result, dict)
+                else getattr(result, "status", None),
+            }
 
     async def get_email_status(
         self,
@@ -375,14 +394,10 @@ class CommunicationService(AzureService):
         Returns:
             Operation status details.
         """
-        from azure.communication.email import EmailClient
-
-        credential = self.get_credential()
-        client = EmailClient(endpoint, credential)
-
-        # Get send status using the operation ID
-        # Note: The SDK uses LRO polling, we can check via the poller
-        # For now, return the operation ID - full status requires webhook integration
+        # Note: The Azure Communication Email SDK doesn't provide a direct
+        # way to check status after the fact. Status tracking is done via:
+        # 1. The initial poller.result() during send
+        # 2. Azure Event Grid webhooks for delivery events
         return {
             "operation_id": operation_id,
             "note": (

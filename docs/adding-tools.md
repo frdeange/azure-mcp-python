@@ -432,6 +432,111 @@ result = await self.execute_resource_graph_query(
 return result.get("data", [])
 ```
 
+## Async-First SDK Usage
+
+**ARCHITECTURE DECISION**: All Azure SDK clients MUST be used in async mode to prevent blocking the MCP server's event loop. See [Issue #78](https://github.com/frdeange/azure-mcp-python/issues/78) for the full analysis.
+
+### Why Async?
+
+| Factor | Sync Pattern | Async Pattern |
+|--------|--------------|---------------|
+| **Event Loop Blocking** | ❌ Blocks entire server | ✅ Non-blocking |
+| **Concurrent Requests** | ❌ Sequential processing | ✅ Parallel processing |
+| **Scalability** | ❌ Limited by blocking I/O | ✅ Handles many concurrent requests |
+| **MCP Server Fit** | ❌ Poor for multi-tool calls | ✅ Ideal for tool orchestration |
+
+**Real-world example**: Email sending takes 2-5 seconds. With sync, the MCP server cannot handle ANY other requests during that time. With async, it continues serving other tools.
+
+### Priority Order
+
+1. **Priority 1**: Use native async SDK (`.aio` module) when available
+2. **Priority 2**: Wrap sync SDK with `asyncio.to_thread()` when no async version exists
+
+### SDK Async Availability
+
+| SDK Package | Async Module | Use Pattern |
+|-------------|--------------|-------------|
+| `azure-storage-blob` | ✅ `azure.storage.blob.aio` | Native async |
+| `azure-monitor-query` | ✅ `azure.monitor.query.aio` | Native async |
+| `azure-communication-email` | ✅ `azure.communication.email.aio` | Native async |
+| `azure-communication-sms` | ✅ `azure.communication.sms.aio` | Native async |
+| `azure-cosmos` | ✅ `azure.cosmos.aio` | Native async |
+| `msgraph-sdk` | ✅ Default async | Native async |
+| `azure-mgmt-costmanagement` | ❌ None | Use `asyncio.to_thread()` |
+| `azure-mgmt-authorization` | ❌ None | Use `asyncio.to_thread()` |
+| `azure-mgmt-resourcegraph` | ❌ None | Use `asyncio.to_thread()` |
+
+### Pattern 1: Native Async SDK (Preferred)
+
+When an `.aio` module exists, use it with `async with` context manager:
+
+```python
+# ✅ CORRECT - Use .aio module with async context manager
+from azure.communication.email.aio import EmailClient
+
+async def send_email(self, endpoint: str, ...) -> dict:
+    credential = self.get_credential()
+    
+    async with EmailClient(endpoint, credential) as client:
+        poller = await client.begin_send(message)
+        result = await poller.result()
+        return {"status": result.get("status")}
+```
+
+### Pattern 2: Async Iteration
+
+For list operations that return iterators, use `async for`:
+
+```python
+# ✅ CORRECT - Async iteration for list operations
+from azure.communication.phonenumbers.aio import PhoneNumbersClient
+
+async def list_phone_numbers(self, endpoint: str) -> list[dict]:
+    credential = self.get_credential()
+    phone_numbers = []
+    
+    async with PhoneNumbersClient(endpoint, credential) as client:
+        async for phone in client.list_purchased_phone_numbers():
+            phone_numbers.append({"number": phone.phone_number})
+    
+    return phone_numbers
+```
+
+### Pattern 3: Wrapped Sync SDK (Fallback)
+
+When no async SDK exists, wrap sync calls with `asyncio.to_thread()`:
+
+```python
+# ⚠️ ACCEPTABLE - When no async SDK exists
+import asyncio
+from azure.mgmt.costmanagement import CostManagementClient
+
+async def query_costs(self, subscription: str, ...) -> dict:
+    credential = self.get_credential()
+    client = CostManagementClient(credential, subscription)
+    
+    # Wrap sync call to prevent blocking the event loop
+    result = await asyncio.to_thread(
+        client.query.usage,
+        scope=f"/subscriptions/{subscription}",
+        parameters=query_definition,
+    )
+    return result.as_dict()
+```
+
+### ❌ Anti-Pattern: Sync SDK in Async Method
+
+```python
+# ❌ WRONG - Sync SDK blocks the event loop
+from azure.communication.email import EmailClient  # No .aio!
+
+async def send_email(self, endpoint: str, ...) -> dict:
+    client = EmailClient(endpoint, credential)
+    poller = client.begin_send(message)  # BLOCKS!
+    result = poller.result()  # BLOCKS!
+    return {"status": result.get("status")}
+```
+
 ## ❌ Anti-Patterns (Don't Do This)
 
 These patterns cause architectural violations and will fail the `test_architecture_patterns.py` tests.
@@ -484,11 +589,12 @@ credential = self.get_credential()
 ## Best Practices
 
 1. **Check base class first** - Always use `AzureService` methods before implementing SDK calls directly
-2. **Keep tools focused** - One tool = one action
-3. **Use Resource Graph** - For listing/querying, prefer ARG over individual API calls
-4. **Document thoroughly** - Descriptions help the LLM understand when to use each tool
-5. **Validate inputs** - Use Pydantic constraints (`ge`, `le`, `min_length`, etc.)
-6. **Add tests** - Every tool needs unit tests
-7. **Avoid Optional types** - Use empty defaults for AI Foundry compatibility
-8. **Use specific types** - Use `str` instead of `Any` where possible
-9. **Run architecture tests** - `pytest tests/unit/test_architecture_patterns.py` catches pattern violations
+2. **Use async SDKs** - Prefer `.aio` modules when available; wrap sync with `asyncio.to_thread()` otherwise
+3. **Keep tools focused** - One tool = one action
+4. **Use Resource Graph** - For listing/querying, prefer ARG over individual API calls
+5. **Document thoroughly** - Descriptions help the LLM understand when to use each tool
+6. **Validate inputs** - Use Pydantic constraints (`ge`, `le`, `min_length`, etc.)
+7. **Add tests** - Every tool needs unit tests
+8. **Avoid Optional types** - Use empty defaults for AI Foundry compatibility
+9. **Use specific types** - Use `str` instead of `Any` where possible
+10. **Run architecture tests** - `pytest tests/unit/test_architecture_patterns.py` catches pattern violations

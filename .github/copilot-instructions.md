@@ -207,7 +207,62 @@ The `AzureService` base class provides:
 
 **Run `pytest tests/unit/test_architecture_patterns.py`** to validate pattern compliance.
 
-### 4. Error Handling
+### 4. Async-First SDK Usage
+
+**ARCHITECTURE DECISION**: All Azure SDK clients MUST be used in async mode. See [Issue #78](https://github.com/frdeange/azure-mcp-python/issues/78).
+
+#### Priority Order
+
+1. **Priority 1**: Use native async SDK (`.aio` module) when available
+2. **Priority 2**: Wrap sync SDK with `asyncio.to_thread()` when no async version exists
+
+#### Pattern 1: Native Async SDK (Preferred)
+
+```python
+# ✅ CORRECT - Use .aio module with async context manager
+from azure.communication.email.aio import EmailClient
+
+async def send_email(self, endpoint: str, ...) -> dict:
+    credential = self.get_credential()
+    
+    async with EmailClient(endpoint, credential) as client:
+        poller = await client.begin_send(message)
+        result = await poller.result()
+        return {"status": result.get("status")}
+```
+
+#### Pattern 2: Wrapped Sync SDK (Fallback)
+
+```python
+# ⚠️ ACCEPTABLE - When no async SDK exists
+import asyncio
+from azure.mgmt.costmanagement import CostManagementClient
+
+async def query_costs(self, subscription: str, ...) -> dict:
+    credential = self.get_credential()
+    client = CostManagementClient(credential, subscription)
+    
+    # Wrap sync call to prevent blocking
+    result = await asyncio.to_thread(
+        client.query.usage,
+        scope=f"/subscriptions/{subscription}",
+        parameters=query_definition,
+    )
+    return result.as_dict()
+```
+
+#### SDK Async Availability
+
+| SDK Package | Async Module |
+|-------------|--------------|
+| `azure-storage-blob` | ✅ `azure.storage.blob.aio` |
+| `azure-monitor-query` | ✅ `azure.monitor.query.aio` |
+| `azure-communication-*` | ✅ `azure.communication.*.aio` |
+| `azure-cosmos` | ✅ `azure.cosmos.aio` |
+| `msgraph-sdk` | ✅ Default async |
+| `azure-mgmt-*` | ❌ Use `asyncio.to_thread()` |
+
+### 5. Error Handling
 
 Always wrap Azure operations with `handle_azure_error()`:
 
@@ -227,7 +282,7 @@ This converts Azure SDK exceptions to appropriate tool errors:
 - `RateLimitError` - Throttling (429)
 - `NetworkError` - Connection issues
 
-### 5. Caching
+### 6. Caching
 
 Use the cache for expensive operations:
 
