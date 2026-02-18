@@ -19,14 +19,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 #### Resource Graph (1 tool)
 - `resourcegraph_query` - Execute Azure Resource Graph KQL queries
 
-#### Cosmos DB (7 tools)
+#### Cosmos DB (12 tools)
 - `cosmos_account_list` - List Cosmos DB accounts
-- `cosmos_account_get` - Get account details
+- `cosmos_account_get` - Get account details via Resource Graph
 - `cosmos_database_list` - List databases
-- `cosmos_database_get` - Get database details
+- `cosmos_database_create` - Create a database (idempotent)
+- `cosmos_database_delete` - Delete a database and all its data
 - `cosmos_container_list` - List containers
-- `cosmos_container_get` - Get container details
+- `cosmos_container_create` - Create a container with partition key (idempotent)
+- `cosmos_container_delete` - Delete a container and all its data
 - `cosmos_item_query` - Query items with SQL
+- `cosmos_item_get` - Get a single item by ID and partition key
+- `cosmos_item_upsert` - Create or update an item
+- `cosmos_item_delete` - Delete an item by ID and partition key
+- Migrated all Cosmos SDK usage to async (`azure.cosmos.aio`) for non-blocking I/O
 
 #### Cost Management (7 tools) ⭐ Exclusive
 - `cost_query` - Query cost and usage data

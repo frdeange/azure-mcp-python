@@ -2,6 +2,7 @@
 
 Provides CosmosService for data plane operations using Azure Cosmos SDK.
 Uses AAD authentication only (no connection strings) for security.
+Uses async SDK (azure.cosmos.aio) for non-blocking I/O.
 """
 
 from __future__ import annotations
@@ -15,7 +16,7 @@ class CosmosService(AzureService):
     """
     Service for Azure Cosmos DB data plane operations.
 
-    Uses azure-cosmos SDK with AAD authentication via DefaultAzureCredential.
+    Uses azure-cosmos async SDK with AAD authentication via DefaultAzureCredential.
     Account discovery should be done via cosmos_account_list tool first.
     """
 
@@ -33,22 +34,22 @@ class CosmosService(AzureService):
         Returns:
             List of database information dictionaries.
         """
-        from azure.cosmos import CosmosClient
+        from azure.cosmos.aio import CosmosClient
 
         credential = self.get_credential()
-        client = CosmosClient(url=account_endpoint, credential=credential)
 
-        databases = []
-        for db in client.list_databases():
-            databases.append(
-                {
-                    "id": db.get("id"),
-                    "self": db.get("_self"),
-                    "etag": db.get("_etag"),
-                    "collections": db.get("_colls"),
-                    "users": db.get("_users"),
-                }
-            )
+        async with CosmosClient(url=account_endpoint, credential=credential) as client:
+            databases = []
+            async for db in client.list_databases():
+                databases.append(
+                    {
+                        "id": db.get("id"),
+                        "self": db.get("_self"),
+                        "etag": db.get("_etag"),
+                        "collections": db.get("_colls"),
+                        "users": db.get("_users"),
+                    }
+                )
 
         return databases
 
@@ -67,25 +68,26 @@ class CosmosService(AzureService):
         Returns:
             List of container information dictionaries.
         """
-        from azure.cosmos import CosmosClient
+        from azure.cosmos.aio import CosmosClient
 
         credential = self.get_credential()
-        client = CosmosClient(url=account_endpoint, credential=credential)
-        database = client.get_database_client(database_name)
 
-        containers = []
-        for container in database.list_containers():
-            containers.append(
-                {
-                    "id": container.get("id"),
-                    "self": container.get("_self"),
-                    "etag": container.get("_etag"),
-                    "partition_key": container.get("partitionKey", {}).get("paths", []),
-                    "indexing_policy": container.get("indexingPolicy"),
-                    "default_ttl": container.get("defaultTtl"),
-                    "unique_key_policy": container.get("uniqueKeyPolicy"),
-                }
-            )
+        async with CosmosClient(url=account_endpoint, credential=credential) as client:
+            database = client.get_database_client(database_name)
+
+            containers = []
+            async for container in database.list_containers():
+                containers.append(
+                    {
+                        "id": container.get("id"),
+                        "self": container.get("_self"),
+                        "etag": container.get("_etag"),
+                        "partition_key": container.get("partitionKey", {}).get("paths", []),
+                        "indexing_policy": container.get("indexingPolicy"),
+                        "default_ttl": container.get("defaultTtl"),
+                        "unique_key_policy": container.get("uniqueKeyPolicy"),
+                    }
+                )
 
         return containers
 
@@ -112,24 +114,23 @@ class CosmosService(AzureService):
         Returns:
             List of matching items.
         """
-        from azure.cosmos import CosmosClient
+        from azure.cosmos.aio import CosmosClient
 
         credential = self.get_credential()
-        client = CosmosClient(url=account_endpoint, credential=credential)
-        database = client.get_database_client(database_name)
-        container = database.get_container_client(container_name)
 
-        items = []
-        query_iterable = container.query_items(
-            query=query,
-            parameters=parameters,
-            max_item_count=max_items,
-        )
+        async with CosmosClient(url=account_endpoint, credential=credential) as client:
+            database = client.get_database_client(database_name)
+            container = database.get_container_client(container_name)
 
-        for item in query_iterable:
-            items.append(item)
-            if len(items) >= max_items:
-                break
+            items = []
+            async for item in container.query_items(
+                query=query,
+                parameters=parameters,
+                max_item_count=max_items,
+            ):
+                items.append(item)
+                if len(items) >= max_items:
+                    break
 
         return items
 
@@ -154,15 +155,16 @@ class CosmosService(AzureService):
         Returns:
             The item as a dictionary.
         """
-        from azure.cosmos import CosmosClient
+        from azure.cosmos.aio import CosmosClient
 
         credential = self.get_credential()
-        client = CosmosClient(url=account_endpoint, credential=credential)
-        database = client.get_database_client(database_name)
-        container = database.get_container_client(container_name)
 
-        item = container.read_item(item=item_id, partition_key=partition_key)
-        return dict(item)
+        async with CosmosClient(url=account_endpoint, credential=credential) as client:
+            database = client.get_database_client(database_name)
+            container = database.get_container_client(container_name)
+
+            item = await container.read_item(item=item_id, partition_key=partition_key)
+            return dict(item)
 
     async def upsert_item(
         self,
@@ -183,15 +185,16 @@ class CosmosService(AzureService):
         Returns:
             The upserted item as a dictionary.
         """
-        from azure.cosmos import CosmosClient
+        from azure.cosmos.aio import CosmosClient
 
         credential = self.get_credential()
-        client = CosmosClient(url=account_endpoint, credential=credential)
-        database = client.get_database_client(database_name)
-        container = database.get_container_client(container_name)
 
-        result = container.upsert_item(body=item)
-        return dict(result)
+        async with CosmosClient(url=account_endpoint, credential=credential) as client:
+            database = client.get_database_client(database_name)
+            container = database.get_container_client(container_name)
+
+            result = await container.upsert_item(body=item)
+            return dict(result)
 
     async def delete_item(
         self,
@@ -214,17 +217,215 @@ class CosmosService(AzureService):
         Returns:
             Confirmation of deletion.
         """
-        from azure.cosmos import CosmosClient
+        from azure.cosmos.aio import CosmosClient
 
         credential = self.get_credential()
-        client = CosmosClient(url=account_endpoint, credential=credential)
-        database = client.get_database_client(database_name)
-        container = database.get_container_client(container_name)
 
-        container.delete_item(item=item_id, partition_key=partition_key)
+        async with CosmosClient(url=account_endpoint, credential=credential) as client:
+            database = client.get_database_client(database_name)
+            container = database.get_container_client(container_name)
+
+            await container.delete_item(item=item_id, partition_key=partition_key)
 
         return {
             "deleted": True,
             "item_id": item_id,
             "partition_key": partition_key,
         }
+
+    async def create_database(
+        self,
+        account_endpoint: str,
+        database_name: str,
+    ) -> dict[str, Any]:
+        """
+        Create a database in a Cosmos DB account (idempotent).
+
+        Uses create_database_if_not_exists for safe, idempotent operation.
+
+        Args:
+            account_endpoint: The Cosmos DB account endpoint URL.
+            database_name: Name of the database to create.
+
+        Returns:
+            Database information dictionary.
+        """
+        from azure.cosmos.aio import CosmosClient
+
+        credential = self.get_credential()
+
+        async with CosmosClient(url=account_endpoint, credential=credential) as client:
+            db = await client.create_database_if_not_exists(id=database_name)
+            properties = await db.read()
+
+            return {
+                "id": properties.get("id"),
+                "self": properties.get("_self"),
+                "etag": properties.get("_etag"),
+                "collections": properties.get("_colls"),
+                "users": properties.get("_users"),
+            }
+
+    async def delete_database(
+        self,
+        account_endpoint: str,
+        database_name: str,
+    ) -> dict[str, Any]:
+        """
+        Delete a database from a Cosmos DB account.
+
+        WARNING: This permanently deletes the database and ALL its containers and data.
+
+        Args:
+            account_endpoint: The Cosmos DB account endpoint URL.
+            database_name: Name of the database to delete.
+
+        Returns:
+            Confirmation of deletion.
+        """
+        from azure.cosmos.aio import CosmosClient
+
+        credential = self.get_credential()
+
+        async with CosmosClient(url=account_endpoint, credential=credential) as client:
+            await client.delete_database(database_name)
+
+        return {
+            "deleted": True,
+            "database_name": database_name,
+        }
+
+    async def create_container(
+        self,
+        account_endpoint: str,
+        database_name: str,
+        container_name: str,
+        partition_key_path: str,
+        throughput: int = 0,
+    ) -> dict[str, Any]:
+        """
+        Create a container in a Cosmos DB database (idempotent).
+
+        Uses create_container_if_not_exists for safe, idempotent operation.
+
+        Args:
+            account_endpoint: The Cosmos DB account endpoint URL.
+            database_name: Name of the database.
+            container_name: Name of the container to create.
+            partition_key_path: Partition key path (e.g., '/category', '/id').
+            throughput: Provisioned throughput in RU/s. 0 for shared/serverless.
+
+        Returns:
+            Container information dictionary.
+        """
+        from azure.cosmos import PartitionKey
+        from azure.cosmos.aio import CosmosClient
+
+        credential = self.get_credential()
+
+        async with CosmosClient(url=account_endpoint, credential=credential) as client:
+            database = client.get_database_client(database_name)
+
+            kwargs: dict[str, Any] = {
+                "id": container_name,
+                "partition_key": PartitionKey(path=partition_key_path),
+            }
+            if throughput > 0:
+                kwargs["offer_throughput"] = throughput
+
+            container = await database.create_container_if_not_exists(**kwargs)
+            properties = await container.read()
+
+            return {
+                "id": properties.get("id"),
+                "self": properties.get("_self"),
+                "etag": properties.get("_etag"),
+                "partition_key": properties.get("partitionKey", {}).get("paths", []),
+                "indexing_policy": properties.get("indexingPolicy"),
+                "default_ttl": properties.get("defaultTtl"),
+                "unique_key_policy": properties.get("uniqueKeyPolicy"),
+            }
+
+    async def delete_container(
+        self,
+        account_endpoint: str,
+        database_name: str,
+        container_name: str,
+    ) -> dict[str, Any]:
+        """
+        Delete a container from a Cosmos DB database.
+
+        WARNING: This permanently deletes the container and ALL its data.
+
+        Args:
+            account_endpoint: The Cosmos DB account endpoint URL.
+            database_name: Name of the database.
+            container_name: Name of the container to delete.
+
+        Returns:
+            Confirmation of deletion.
+        """
+        from azure.cosmos.aio import CosmosClient
+
+        credential = self.get_credential()
+
+        async with CosmosClient(url=account_endpoint, credential=credential) as client:
+            database = client.get_database_client(database_name)
+            await database.delete_container(container_name)
+
+        return {
+            "deleted": True,
+            "database_name": database_name,
+            "container_name": container_name,
+        }
+
+    async def get_account(
+        self,
+        subscription: str,
+        account_name: str,
+        resource_group: str = "",
+    ) -> dict[str, Any]:
+        """
+        Get a single Cosmos DB account by name via Resource Graph.
+
+        Args:
+            subscription: Subscription ID or name.
+            account_name: Name of the Cosmos DB account.
+            resource_group: Optional resource group filter.
+
+        Returns:
+            Cosmos DB account details dictionary.
+        """
+        sub_id = await self.resolve_subscription(subscription)
+
+        query = (
+            "resources "
+            "| where type =~ 'microsoft.documentdb/databaseaccounts' "
+            f"| where name =~ '{account_name}'"
+        )
+
+        if resource_group:
+            query += f" | where resourceGroup =~ '{resource_group}'"
+
+        query += (
+            " | project id, name, location, resourceGroup, subscriptionId, kind, tags, "
+            "documentEndpoint = properties.documentEndpoint, "
+            "consistencyLevel = properties.consistencyPolicy.defaultConsistencyLevel, "
+            "provisioningState = properties.provisioningState, "
+            "enableFreeTier = properties.enableFreeTier, "
+            "capacityMode = properties.capacity.mode, "
+            "writeLocations = properties.writeLocations, "
+            "readLocations = properties.readLocations"
+        )
+
+        result = await self.execute_resource_graph_query(
+            query=query,
+            subscriptions=[sub_id],
+        )
+
+        data = result.get("data", [])
+        if not data:
+            msg = f"Cosmos DB account '{account_name}' not found"
+            raise ValueError(msg)
+
+        return data[0]

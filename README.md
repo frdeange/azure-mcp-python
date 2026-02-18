@@ -67,14 +67,14 @@ azure-mcp
 
 ---
 
-## 🛠️ Available Tools (94 Total)
+## 🛠️ Available Tools (99 Total)
 
 ### 📊 Summary
 
 | Family | Tools | Read | Write | Description |
 |--------|-------|------|-------|-------------|
 | 🔍 Resource Graph | 1 | 1 | 0 | Query Azure resources with KQL |
-| 🗄️ Cosmos DB | 7 | 6 | 1 | Database, container, and item operations |
+| 🗄️ Cosmos DB | 12 | 6 | 6 | Account, database, container, and item CRUD |
 | 💰 Cost Management | 7 | 7 | 0 | Costs, forecasts, budgets, recommendations |
 | 📦 Storage | 9 | 6 | 3 | Blobs, queues, tables, accounts |
 | 👥 Entra ID | 18 | 18 | 0 | Users, groups, apps, service principals |
@@ -83,7 +83,7 @@ azure-mcp
 | 🔑 RBAC | 8 | 8 | 0 | Roles, assignments, permissions |
 | 📱 Communication | 7 | 4 | 3 | SMS, Email, Phone Numbers |
 | 🔎 Azure AI Search | 12 | 9 | 3 | Full-text search, indexing, documents |
-| **Total** | **94** | **84** | **10** | |
+| **Total** | **99** | **84** | **15** | |
 
 ---
 
@@ -102,21 +102,27 @@ Query all virtual machines in my subscription
 </details>
 
 <details>
-<summary><h3>🗄️ Cosmos DB (7 tools)</h3></summary>
+<summary><h3>🗄️ Cosmos DB (12 tools)</h3></summary>
 
 | Tool | Type | Description |
 |------|------|-------------|
 | \`cosmos_account_list\` | 📖 Read | List Cosmos DB accounts in a subscription |
 | \`cosmos_account_get\` | 📖 Read | Get details of a specific Cosmos DB account |
 | \`cosmos_database_list\` | 📖 Read | List databases in a Cosmos DB account |
-| \`cosmos_database_get\` | 📖 Read | Get database details and throughput info |
+| \`cosmos_database_create\` | ✏️ Write | Create a database (idempotent) |
+| \`cosmos_database_delete\` | ⚠️ Delete | Delete a database and all its data |
 | \`cosmos_container_list\` | 📖 Read | List containers in a database |
-| \`cosmos_container_get\` | 📖 Read | Get container details including partition key |
+| \`cosmos_container_create\` | ✏️ Write | Create a container with partition key (idempotent) |
+| \`cosmos_container_delete\` | ⚠️ Delete | Delete a container and all its data |
 | \`cosmos_item_query\` | 📖 Read | Query items using SQL-like syntax |
+| \`cosmos_item_get\` | 📖 Read | Get a single item by ID and partition key |
+| \`cosmos_item_upsert\` | ✏️ Write | Create or update an item |
+| \`cosmos_item_delete\` | ⚠️ Delete | Delete an item by ID and partition key |
 
 **Example:**
 \`\`\`
 List all Cosmos DB accounts in my production subscription
+Create a new database called 'analytics' in my Cosmos account
 Query items from the users container where status = 'active'
 \`\`\`
 

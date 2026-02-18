@@ -1,6 +1,8 @@
 """Cosmos DB account tools.
 
-Provides cosmos_account_list tool for discovering Cosmos DB accounts via Resource Graph.
+Provides tools for Cosmos DB account discovery via Resource Graph:
+- cosmos_account_list: List accounts in a subscription
+- cosmos_account_get: Get a single account by name
 """
 
 from __future__ import annotations
@@ -13,6 +15,7 @@ from azure_mcp.core.base import AzureService, AzureTool
 from azure_mcp.core.errors import handle_azure_error
 from azure_mcp.core.models import ToolMetadata
 from azure_mcp.core.registry import register_tool
+from azure_mcp.tools.cosmos.service import CosmosService
 
 
 # Summary fields for Resource Graph projection
@@ -146,6 +149,71 @@ class CosmosAccountListTool(AzureTool):
                 resource_group=options.resource_group,
                 detail_level=options.detail_level,
                 limit=options.limit,
+            )
+        except Exception as e:
+            raise handle_azure_error(e) from e
+
+
+# =============================================================================
+# cosmos_account_get
+# =============================================================================
+
+
+class CosmosAccountGetOptions(BaseModel):
+    """Options for getting a single Cosmos DB account."""
+
+    subscription: str = Field(
+        ...,
+        description="Azure subscription ID or display name to query.",
+    )
+    account_name: str = Field(
+        ...,
+        description="Name of the Cosmos DB account to retrieve.",
+    )
+    resource_group: str = Field(
+        default="",
+        description="Resource group name to narrow the search. Leave empty to search all resource groups.",
+    )
+
+
+@register_tool("cosmos", "account")
+class CosmosAccountGetTool(AzureTool):
+    """Tool for getting a single Cosmos DB account by name."""
+
+    @property
+    def name(self) -> str:
+        return "cosmos_account_get"
+
+    @property
+    def description(self) -> str:
+        return (
+            "Get details of a single Azure Cosmos DB account by name. "
+            "Returns account information including the documentEndpoint URL needed "
+            "for data plane operations (database/container/item tools). "
+            "Use this when you already know the account name instead of listing all accounts."
+        )
+
+    @property
+    def metadata(self) -> ToolMetadata:
+        return ToolMetadata(
+            read_only=True,
+            destructive=False,
+            idempotent=True,
+        )
+
+    @property
+    def options_model(self) -> type[BaseModel]:
+        return CosmosAccountGetOptions
+
+    async def execute(self, options: CosmosAccountGetOptions) -> Any:
+        """Execute the account get."""
+        service = CosmosService()
+
+        try:
+            return await service.get_account(
+                subscription=options.subscription,
+                account_name=options.account_name,
+                resource_group=options.resource_group,
             )
         except Exception as e:
             raise handle_azure_error(e) from e

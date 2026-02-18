@@ -2,20 +2,30 @@
 
 from __future__ import annotations
 
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
 from azure_mcp.tools.cosmos.account import (
+    CosmosAccountGetOptions,
+    CosmosAccountGetTool,
     CosmosAccountListOptions,
     CosmosAccountListTool,
     CosmosAccountService,
 )
 from azure_mcp.tools.cosmos.container import (
+    CosmosContainerCreateOptions,
+    CosmosContainerCreateTool,
+    CosmosContainerDeleteOptions,
+    CosmosContainerDeleteTool,
     CosmosContainerListOptions,
     CosmosContainerListTool,
 )
 from azure_mcp.tools.cosmos.database import (
+    CosmosDatabaseCreateOptions,
+    CosmosDatabaseCreateTool,
+    CosmosDatabaseDeleteOptions,
+    CosmosDatabaseDeleteTool,
     CosmosDatabaseListOptions,
     CosmosDatabaseListTool,
 )
@@ -30,6 +40,27 @@ from azure_mcp.tools.cosmos.item import (
     CosmosItemUpsertTool,
 )
 from azure_mcp.tools.cosmos.service import CosmosService
+
+
+# =============================================================================
+# Helper: Async iterator mock
+# =============================================================================
+
+
+class AsyncIteratorMock:
+    """Helper to mock async iterators (async for)."""
+
+    def __init__(self, items):
+        self.items = iter(items)
+
+    def __aiter__(self):
+        return self
+
+    async def __anext__(self):
+        try:
+            return next(self.items)
+        except StopIteration:
+            raise StopAsyncIteration
 
 
 # =============================================================================
@@ -135,6 +166,72 @@ class TestCosmosAccountListTool:
 
 
 # =============================================================================
+# cosmos_account_get Tests
+# =============================================================================
+
+
+class TestCosmosAccountGetOptions:
+    """Tests for CosmosAccountGetOptions model."""
+
+    def test_minimal_options(self):
+        """Test creation with minimal required fields."""
+        options = CosmosAccountGetOptions(
+            subscription="my-sub",
+            account_name="mycosmosdb",
+        )
+        assert options.subscription == "my-sub"
+        assert options.account_name == "mycosmosdb"
+        assert options.resource_group == ""
+
+    def test_full_options(self):
+        """Test creation with all fields."""
+        options = CosmosAccountGetOptions(
+            subscription="my-sub",
+            account_name="mycosmosdb",
+            resource_group="my-rg",
+        )
+        assert options.resource_group == "my-rg"
+
+
+class TestCosmosAccountGetTool:
+    """Tests for CosmosAccountGetTool."""
+
+    def test_tool_properties(self):
+        """Test tool metadata properties."""
+        tool = CosmosAccountGetTool()
+        assert tool.name == "cosmos_account_get"
+        assert "Cosmos DB" in tool.description
+        assert "documentEndpoint" in tool.description
+        assert tool.metadata.read_only is True
+        assert tool.metadata.destructive is False
+        assert tool.metadata.idempotent is True
+
+    @pytest.mark.asyncio
+    async def test_execute_calls_service(self, patch_credential):
+        """Test that execute calls the service."""
+        tool = CosmosAccountGetTool()
+        options = CosmosAccountGetOptions(
+            subscription="my-sub",
+            account_name="mycosmosdb",
+        )
+
+        with patch.object(CosmosService, "get_account") as mock_get:
+            mock_get.return_value = {
+                "name": "mycosmosdb",
+                "documentEndpoint": "https://mycosmosdb.documents.azure.com:443/",
+            }
+
+            result = await tool.execute(options)
+
+            mock_get.assert_called_once_with(
+                subscription="my-sub",
+                account_name="mycosmosdb",
+                resource_group="",
+            )
+            assert result["name"] == "mycosmosdb"
+
+
+# =============================================================================
 # cosmos_database_list Tests
 # =============================================================================
 
@@ -178,6 +275,109 @@ class TestCosmosDatabaseListTool:
                 account_endpoint="https://test.documents.azure.com:443/"
             )
             assert len(result) == 2
+
+
+# =============================================================================
+# cosmos_database_create Tests
+# =============================================================================
+
+
+class TestCosmosDatabaseCreateOptions:
+    """Tests for CosmosDatabaseCreateOptions model."""
+
+    def test_options(self):
+        """Test creation with required fields."""
+        options = CosmosDatabaseCreateOptions(
+            account_endpoint="https://myaccount.documents.azure.com:443/",
+            database_name="mydb",
+        )
+        assert options.account_endpoint == "https://myaccount.documents.azure.com:443/"
+        assert options.database_name == "mydb"
+
+
+class TestCosmosDatabaseCreateTool:
+    """Tests for CosmosDatabaseCreateTool."""
+
+    def test_tool_properties(self):
+        """Test tool metadata properties."""
+        tool = CosmosDatabaseCreateTool()
+        assert tool.name == "cosmos_database_create"
+        assert "create" in tool.description.lower()
+        assert "idempotent" in tool.description.lower()
+        assert tool.metadata.read_only is False
+        assert tool.metadata.destructive is False
+        assert tool.metadata.idempotent is True
+
+    @pytest.mark.asyncio
+    async def test_execute_calls_service(self, patch_credential):
+        """Test that execute calls the service."""
+        tool = CosmosDatabaseCreateTool()
+        options = CosmosDatabaseCreateOptions(
+            account_endpoint="https://test.documents.azure.com:443/",
+            database_name="newdb",
+        )
+
+        with patch.object(CosmosService, "create_database") as mock_create:
+            mock_create.return_value = {"id": "newdb", "self": "_self"}
+
+            result = await tool.execute(options)
+
+            mock_create.assert_called_once_with(
+                account_endpoint="https://test.documents.azure.com:443/",
+                database_name="newdb",
+            )
+            assert result["id"] == "newdb"
+
+
+# =============================================================================
+# cosmos_database_delete Tests
+# =============================================================================
+
+
+class TestCosmosDatabaseDeleteOptions:
+    """Tests for CosmosDatabaseDeleteOptions model."""
+
+    def test_options(self):
+        """Test creation with required fields."""
+        options = CosmosDatabaseDeleteOptions(
+            account_endpoint="https://myaccount.documents.azure.com:443/",
+            database_name="mydb",
+        )
+        assert options.database_name == "mydb"
+
+
+class TestCosmosDatabaseDeleteTool:
+    """Tests for CosmosDatabaseDeleteTool."""
+
+    def test_tool_properties(self):
+        """Test tool metadata properties."""
+        tool = CosmosDatabaseDeleteTool()
+        assert tool.name == "cosmos_database_delete"
+        assert "delete" in tool.description.lower()
+        assert "destructive" in tool.description.lower()
+        assert tool.metadata.read_only is False
+        assert tool.metadata.destructive is True
+        assert tool.metadata.idempotent is True
+
+    @pytest.mark.asyncio
+    async def test_execute_calls_service(self, patch_credential):
+        """Test that execute calls the service."""
+        tool = CosmosDatabaseDeleteTool()
+        options = CosmosDatabaseDeleteOptions(
+            account_endpoint="https://test.documents.azure.com:443/",
+            database_name="olddb",
+        )
+
+        with patch.object(CosmosService, "delete_database") as mock_delete:
+            mock_delete.return_value = {"deleted": True, "database_name": "olddb"}
+
+            result = await tool.execute(options)
+
+            mock_delete.assert_called_once_with(
+                account_endpoint="https://test.documents.azure.com:443/",
+                database_name="olddb",
+            )
+            assert result["deleted"] is True
 
 
 # =============================================================================
@@ -227,6 +427,138 @@ class TestCosmosContainerListTool:
                 database_name="mydb",
             )
             assert len(result) == 1
+
+
+# =============================================================================
+# cosmos_container_create Tests
+# =============================================================================
+
+
+class TestCosmosContainerCreateOptions:
+    """Tests for CosmosContainerCreateOptions model."""
+
+    def test_minimal_options(self):
+        """Test creation with minimal required fields."""
+        options = CosmosContainerCreateOptions(
+            account_endpoint="https://myaccount.documents.azure.com:443/",
+            database_name="mydb",
+            container_name="mycontainer",
+            partition_key_path="/category",
+        )
+        assert options.container_name == "mycontainer"
+        assert options.partition_key_path == "/category"
+        assert options.throughput == 0
+
+    def test_full_options(self):
+        """Test creation with all fields."""
+        options = CosmosContainerCreateOptions(
+            account_endpoint="https://myaccount.documents.azure.com:443/",
+            database_name="mydb",
+            container_name="mycontainer",
+            partition_key_path="/tenantId",
+            throughput=400,
+        )
+        assert options.throughput == 400
+
+
+class TestCosmosContainerCreateTool:
+    """Tests for CosmosContainerCreateTool."""
+
+    def test_tool_properties(self):
+        """Test tool metadata properties."""
+        tool = CosmosContainerCreateTool()
+        assert tool.name == "cosmos_container_create"
+        assert "create" in tool.description.lower()
+        assert "partition key" in tool.description.lower()
+        assert tool.metadata.read_only is False
+        assert tool.metadata.destructive is False
+        assert tool.metadata.idempotent is True
+
+    @pytest.mark.asyncio
+    async def test_execute_calls_service(self, patch_credential):
+        """Test that execute calls the service."""
+        tool = CosmosContainerCreateTool()
+        options = CosmosContainerCreateOptions(
+            account_endpoint="https://test.documents.azure.com:443/",
+            database_name="mydb",
+            container_name="newcontainer",
+            partition_key_path="/pk",
+        )
+
+        with patch.object(CosmosService, "create_container") as mock_create:
+            mock_create.return_value = {
+                "id": "newcontainer",
+                "partition_key": ["/pk"],
+            }
+
+            result = await tool.execute(options)
+
+            mock_create.assert_called_once_with(
+                account_endpoint="https://test.documents.azure.com:443/",
+                database_name="mydb",
+                container_name="newcontainer",
+                partition_key_path="/pk",
+                throughput=0,
+            )
+            assert result["id"] == "newcontainer"
+
+
+# =============================================================================
+# cosmos_container_delete Tests
+# =============================================================================
+
+
+class TestCosmosContainerDeleteOptions:
+    """Tests for CosmosContainerDeleteOptions model."""
+
+    def test_options(self):
+        """Test creation with required fields."""
+        options = CosmosContainerDeleteOptions(
+            account_endpoint="https://myaccount.documents.azure.com:443/",
+            database_name="mydb",
+            container_name="mycontainer",
+        )
+        assert options.container_name == "mycontainer"
+
+
+class TestCosmosContainerDeleteTool:
+    """Tests for CosmosContainerDeleteTool."""
+
+    def test_tool_properties(self):
+        """Test tool metadata properties."""
+        tool = CosmosContainerDeleteTool()
+        assert tool.name == "cosmos_container_delete"
+        assert "delete" in tool.description.lower()
+        assert "destructive" in tool.description.lower()
+        assert tool.metadata.read_only is False
+        assert tool.metadata.destructive is True
+        assert tool.metadata.idempotent is True
+
+    @pytest.mark.asyncio
+    async def test_execute_calls_service(self, patch_credential):
+        """Test that execute calls the service."""
+        tool = CosmosContainerDeleteTool()
+        options = CosmosContainerDeleteOptions(
+            account_endpoint="https://test.documents.azure.com:443/",
+            database_name="mydb",
+            container_name="oldcontainer",
+        )
+
+        with patch.object(CosmosService, "delete_container") as mock_delete:
+            mock_delete.return_value = {
+                "deleted": True,
+                "database_name": "mydb",
+                "container_name": "oldcontainer",
+            }
+
+            result = await tool.execute(options)
+
+            mock_delete.assert_called_once_with(
+                account_endpoint="https://test.documents.azure.com:443/",
+                database_name="mydb",
+                container_name="oldcontainer",
+            )
+            assert result["deleted"] is True
 
 
 # =============================================================================
@@ -492,36 +824,76 @@ class TestCosmosItemDeleteTool:
 
 
 # =============================================================================
-# CosmosService Tests
+# CosmosService Tests (async SDK)
 # =============================================================================
 
 
 class TestCosmosService:
-    """Tests for CosmosService data plane operations."""
+    """Tests for CosmosService data plane operations using async SDK."""
 
     @pytest.fixture
     def mock_cosmos_client(self):
-        """Create a mock Cosmos client."""
+        """Create a mock async Cosmos client with context manager support.
+
+        In the azure.cosmos.aio SDK:
+        - get_database_client() / get_container_client() are SYNC (return proxy objects)
+        - list_databases() / list_containers() / query_items() are SYNC (return async iterables)
+        - read_item() / upsert_item() / delete_item() / read() etc. are ASYNC (must be awaited)
+        - create_database_if_not_exists() / delete_database() etc. are ASYNC
+        """
+        # Item-level mocks - use MagicMock so sync methods work correctly
         mock_container = MagicMock()
-        mock_container.query_items.return_value = [{"id": "item1"}]
-        mock_container.read_item.return_value = {"id": "item1", "data": "test"}
-        mock_container.upsert_item.return_value = {"id": "item1", "data": "updated"}
-        mock_container.delete_item.return_value = None
+        mock_container.query_items.return_value = AsyncIteratorMock([{"id": "item1"}])
+        mock_container.read_item = AsyncMock(return_value={"id": "item1", "data": "test"})
+        mock_container.upsert_item = AsyncMock(return_value={"id": "item1", "data": "updated"})
+        mock_container.delete_item = AsyncMock(return_value=None)
+        mock_container.read = AsyncMock(
+            return_value={
+                "id": "container1",
+                "_self": "_self",
+                "_etag": "etag",
+                "partitionKey": {"paths": ["/pk"]},
+                "indexingPolicy": {},
+                "defaultTtl": None,
+                "uniqueKeyPolicy": {},
+            }
+        )
 
+        # Database-level mocks - use MagicMock so sync methods work correctly
         mock_database = MagicMock()
-        mock_database.list_containers.return_value = [{"id": "container1"}]
+        mock_database.list_containers.return_value = AsyncIteratorMock(
+            [{"id": "container1", "partitionKey": {"paths": ["/pk"]}}]
+        )
         mock_database.get_container_client.return_value = mock_container
+        mock_database.delete_container = AsyncMock(return_value=None)
+        mock_database.create_container_if_not_exists = AsyncMock(return_value=mock_container)
+        mock_database.read = AsyncMock(
+            return_value={
+                "id": "db1",
+                "_self": "_self",
+                "_etag": "etag",
+                "_colls": "colls",
+                "_users": "users",
+            }
+        )
 
+        # Client-level mocks - use MagicMock so sync methods work correctly
         mock_client = MagicMock()
-        mock_client.list_databases.return_value = [{"id": "db1"}]
+        mock_client.list_databases.return_value = AsyncIteratorMock([{"id": "db1"}])
         mock_client.get_database_client.return_value = mock_database
+        mock_client.create_database_if_not_exists = AsyncMock(return_value=mock_database)
+        mock_client.delete_database = AsyncMock(return_value=None)
+
+        # Context manager support
+        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+        mock_client.__aexit__ = AsyncMock(return_value=False)
 
         return mock_client
 
     @pytest.mark.asyncio
     async def test_list_databases(self, patch_credential, mock_cosmos_client):
-        """Test listing databases."""
-        with patch("azure.cosmos.CosmosClient") as mock_cls:
+        """Test listing databases with async SDK."""
+        with patch("azure.cosmos.aio.CosmosClient") as mock_cls:
             mock_cls.return_value = mock_cosmos_client
 
             service = CosmosService()
@@ -534,8 +906,8 @@ class TestCosmosService:
 
     @pytest.mark.asyncio
     async def test_list_containers(self, patch_credential, mock_cosmos_client):
-        """Test listing containers."""
-        with patch("azure.cosmos.CosmosClient") as mock_cls:
+        """Test listing containers with async SDK."""
+        with patch("azure.cosmos.aio.CosmosClient") as mock_cls:
             mock_cls.return_value = mock_cosmos_client
 
             service = CosmosService()
@@ -549,8 +921,8 @@ class TestCosmosService:
 
     @pytest.mark.asyncio
     async def test_query_items(self, patch_credential, mock_cosmos_client):
-        """Test querying items."""
-        with patch("azure.cosmos.CosmosClient") as mock_cls:
+        """Test querying items with async SDK."""
+        with patch("azure.cosmos.aio.CosmosClient") as mock_cls:
             mock_cls.return_value = mock_cosmos_client
 
             service = CosmosService()
@@ -566,8 +938,8 @@ class TestCosmosService:
 
     @pytest.mark.asyncio
     async def test_get_item(self, patch_credential, mock_cosmos_client):
-        """Test getting a single item."""
-        with patch("azure.cosmos.CosmosClient") as mock_cls:
+        """Test getting a single item with async SDK."""
+        with patch("azure.cosmos.aio.CosmosClient") as mock_cls:
             mock_cls.return_value = mock_cosmos_client
 
             service = CosmosService()
@@ -583,8 +955,8 @@ class TestCosmosService:
 
     @pytest.mark.asyncio
     async def test_upsert_item(self, patch_credential, mock_cosmos_client):
-        """Test upserting an item."""
-        with patch("azure.cosmos.CosmosClient") as mock_cls:
+        """Test upserting an item with async SDK."""
+        with patch("azure.cosmos.aio.CosmosClient") as mock_cls:
             mock_cls.return_value = mock_cosmos_client
 
             service = CosmosService()
@@ -599,8 +971,8 @@ class TestCosmosService:
 
     @pytest.mark.asyncio
     async def test_delete_item(self, patch_credential, mock_cosmos_client):
-        """Test deleting an item."""
-        with patch("azure.cosmos.CosmosClient") as mock_cls:
+        """Test deleting an item with async SDK."""
+        with patch("azure.cosmos.aio.CosmosClient") as mock_cls:
             mock_cls.return_value = mock_cosmos_client
 
             service = CosmosService()
@@ -614,3 +986,143 @@ class TestCosmosService:
 
             assert result["deleted"] is True
             assert result["item_id"] == "item1"
+
+    @pytest.mark.asyncio
+    async def test_create_database(self, patch_credential, mock_cosmos_client):
+        """Test creating a database with async SDK."""
+        with patch("azure.cosmos.aio.CosmosClient") as mock_cls:
+            mock_cls.return_value = mock_cosmos_client
+
+            service = CosmosService()
+            result = await service.create_database(
+                account_endpoint="https://test.documents.azure.com:443/",
+                database_name="newdb",
+            )
+
+            assert result["id"] == "db1"
+            mock_cosmos_client.create_database_if_not_exists.assert_called_once_with(id="newdb")
+
+    @pytest.mark.asyncio
+    async def test_delete_database(self, patch_credential, mock_cosmos_client):
+        """Test deleting a database with async SDK."""
+        with patch("azure.cosmos.aio.CosmosClient") as mock_cls:
+            mock_cls.return_value = mock_cosmos_client
+
+            service = CosmosService()
+            result = await service.delete_database(
+                account_endpoint="https://test.documents.azure.com:443/",
+                database_name="olddb",
+            )
+
+            assert result["deleted"] is True
+            assert result["database_name"] == "olddb"
+            mock_cosmos_client.delete_database.assert_called_once_with("olddb")
+
+    @pytest.mark.asyncio
+    async def test_create_container(self, patch_credential, mock_cosmos_client):
+        """Test creating a container with async SDK."""
+        with (
+            patch("azure.cosmos.aio.CosmosClient") as mock_cls,
+            patch("azure.cosmos.PartitionKey") as mock_pk,
+        ):
+            mock_cls.return_value = mock_cosmos_client
+            mock_pk_instance = MagicMock()
+            mock_pk.return_value = mock_pk_instance
+
+            service = CosmosService()
+            result = await service.create_container(
+                account_endpoint="https://test.documents.azure.com:443/",
+                database_name="mydb",
+                container_name="newcontainer",
+                partition_key_path="/pk",
+            )
+
+            assert result["id"] == "container1"
+            mock_pk.assert_called_once_with(path="/pk")
+
+    @pytest.mark.asyncio
+    async def test_create_container_with_throughput(self, patch_credential, mock_cosmos_client):
+        """Test creating a container with provisioned throughput."""
+        with (
+            patch("azure.cosmos.aio.CosmosClient") as mock_cls,
+            patch("azure.cosmos.PartitionKey") as mock_pk,
+        ):
+            mock_cls.return_value = mock_cosmos_client
+            mock_pk_instance = MagicMock()
+            mock_pk.return_value = mock_pk_instance
+
+            mock_database = mock_cosmos_client.get_database_client.return_value
+
+            service = CosmosService()
+            await service.create_container(
+                account_endpoint="https://test.documents.azure.com:443/",
+                database_name="mydb",
+                container_name="newcontainer",
+                partition_key_path="/pk",
+                throughput=400,
+            )
+
+            # Verify throughput was passed
+            call_kwargs = mock_database.create_container_if_not_exists.call_args
+            assert call_kwargs[1]["offer_throughput"] == 400
+
+    @pytest.mark.asyncio
+    async def test_delete_container(self, patch_credential, mock_cosmos_client):
+        """Test deleting a container with async SDK."""
+        with patch("azure.cosmos.aio.CosmosClient") as mock_cls:
+            mock_cls.return_value = mock_cosmos_client
+
+            service = CosmosService()
+            result = await service.delete_container(
+                account_endpoint="https://test.documents.azure.com:443/",
+                database_name="mydb",
+                container_name="oldcontainer",
+            )
+
+            assert result["deleted"] is True
+            assert result["container_name"] == "oldcontainer"
+
+    @pytest.mark.asyncio
+    async def test_get_account(self, patch_credential):
+        """Test getting a single account via Resource Graph."""
+        service = CosmosService()
+
+        with (
+            patch.object(service, "resolve_subscription") as mock_resolve,
+            patch.object(service, "execute_resource_graph_query") as mock_query,
+        ):
+            mock_resolve.return_value = "sub-id-123"
+            mock_query.return_value = {
+                "data": [
+                    {
+                        "name": "mycosmosdb",
+                        "documentEndpoint": "https://mycosmosdb.documents.azure.com:443/",
+                    }
+                ]
+            }
+
+            result = await service.get_account(
+                subscription="my-sub",
+                account_name="mycosmosdb",
+            )
+
+            assert result["name"] == "mycosmosdb"
+            mock_resolve.assert_called_once_with("my-sub")
+
+    @pytest.mark.asyncio
+    async def test_get_account_not_found(self, patch_credential):
+        """Test getting a non-existent account raises ValueError."""
+        service = CosmosService()
+
+        with (
+            patch.object(service, "resolve_subscription") as mock_resolve,
+            patch.object(service, "execute_resource_graph_query") as mock_query,
+        ):
+            mock_resolve.return_value = "sub-id-123"
+            mock_query.return_value = {"data": []}
+
+            with pytest.raises(ValueError, match="not found"):
+                await service.get_account(
+                    subscription="my-sub",
+                    account_name="nonexistent",
+                )
