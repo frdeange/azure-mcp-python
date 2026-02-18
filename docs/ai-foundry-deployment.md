@@ -213,54 +213,53 @@ IDENTITY=$(az containerapp show \
 echo "Principal ID: $IDENTITY"
 ```
 
-### 5. Assign RBAC Roles (Subscription Level)
+### 5. Assign RBAC Roles (Least Privilege)
 
-The MCP server needs permissions to access Azure resources. Assign these roles at subscription level for broad access:
+The MCP server needs permissions to access Azure resources. Use **least-privilege** roles — avoid `Contributor` and `Owner` at subscription level.
 
 ```bash
 SUB="/subscriptions/<subscription-id>"
 
-# Core roles for all tools
+# Core - Required for Resource Graph queries across all tools
 az role assignment create --assignee $IDENTITY --role "Reader" --scope $SUB
-az role assignment create --assignee $IDENTITY --role "Contributor" --scope $SUB
 
-# Cosmos DB (control plane only - see below for data plane)
+# Cosmos DB (control plane - for listing accounts)
 az role assignment create --assignee $IDENTITY --role "Cosmos DB Account Reader Role" --scope $SUB
 
 # Cost Management tools
 az role assignment create --assignee $IDENTITY --role "Cost Management Reader" --scope $SUB
 
-# Key Vault tools
-az role assignment create --assignee $IDENTITY --role "Key Vault Administrator" --scope $SUB
-
-# Storage tools
+# Storage tools (use Data Reader instead of Contributor for read-only)
 az role assignment create --assignee $IDENTITY --role "Storage Blob Data Contributor" --scope $SUB
 az role assignment create --assignee $IDENTITY --role "Storage Table Data Contributor" --scope $SUB
-az role assignment create --assignee $IDENTITY --role "Storage Queue Data Contributor" --scope $SUB
+az role assignment create --assignee $IDENTITY --role "Storage Queue Data Reader" --scope $SUB
 
-# Azure Monitor tools
+# Azure Monitor + App Insights tools
 az role assignment create --assignee $IDENTITY --role "Monitoring Reader" --scope $SUB
+az role assignment create --assignee $IDENTITY --role "Log Analytics Reader" --scope $SUB
 
 # Azure AI Search tools (assign per Search Service for data plane access)
-# az role assignment create --assignee $IDENTITY --role "Search Index Data Reader" --scope $SEARCH_SERVICE_ID
-# az role assignment create --assignee $IDENTITY --role "Search Index Data Contributor" --scope $SEARCH_SERVICE_ID
+# Replace $SEARCH_SERVICE_ID with the full resource ID of your search service
+az role assignment create --assignee $IDENTITY --role "Search Index Data Reader" --scope $SEARCH_SERVICE_ID
+az role assignment create --assignee $IDENTITY --role "Search Index Data Contributor" --scope $SEARCH_SERVICE_ID
 ```
 
 #### Summary of Required Roles
 
 | Role | Scope | Tools |
 |------|-------|-------|
-| Reader | Subscription | All (Resource Graph queries) |
-| Contributor | Subscription | Resource management |
-| Cosmos DB Account Reader Role | Subscription | `cosmos_account_list`, `cosmos_database_list` |
-| Cost Management Reader | Subscription | `cost_query`, `cost_forecast`, `cost_budgets_*` |
-| Key Vault Administrator | Subscription | `keyvault_secret_*`, `keyvault_key_*` |
-| Storage Blob Data Contributor | Subscription | `storage_blob_*` |
-| Storage Table Data Contributor | Subscription | `storage_table_*` |
-| Storage Queue Data Contributor | Subscription | `storage_queue_*` |
-| Monitoring Reader | Subscription | `monitor_*` |
-| Search Index Data Reader | Search Service | `search_query`, `search_document_get` |
-| Search Index Data Contributor | Search Service | `search_document_upload`, `search_document_*` |
+| Reader | Subscription | All (Resource Graph queries, resource listings) |
+| Cosmos DB Account Reader Role | Subscription | `cosmos_account_list`, `cosmos_account_get` |
+| Cost Management Reader | Subscription | `cost_query`, `cost_forecast`, `cost_budgets_*`, `cost_exports_list` |
+| Storage Blob Data Contributor | Subscription | `storage_blob_read`, `storage_blob_write`, `storage_blob_delete` |
+| Storage Table Data Contributor | Subscription | `storage_table_query` |
+| Storage Queue Data Reader | Subscription | `storage_queue_list` |
+| Monitoring Reader | Subscription | `monitor_metrics_*`, `monitor_alerts_*`, `monitor_activity_*` |
+| Log Analytics Reader | Subscription/Workspace | `monitor_logs_*`, `appinsights_*` queries |
+| Search Index Data Reader | Search Service | `search_query`, `search_suggest`, `search_document_get` |
+| Search Index Data Contributor | Search Service | `search_document_upload`, `search_document_merge`, `search_document_delete` |
+
+> **Note**: `Contributor` and `Key Vault Administrator` are NOT recommended. See [docs/permissions.md](permissions.md) for detailed least-privilege guidance per tool family.
 
 ### 6. Cosmos DB Data Plane Roles (Special Case)
 
@@ -268,6 +267,7 @@ az role assignment create --assignee $IDENTITY --role "Monitoring Reader" --scop
 
 ```bash
 # For each Cosmos DB account:
+# Data Contributor - covers containers and items CRUD
 az cosmosdb sql role assignment create \
   --account-name <cosmos-account-name> \
   --resource-group <resource-group> \
@@ -276,11 +276,19 @@ az cosmosdb sql role assignment create \
   --scope "/"
 ```
 
+⚠️ **Database Create/Delete**: The Built-in Data Contributor does NOT include `sqlDatabases/write` or `sqlDatabases/delete`. If you need `cosmos_database_create` and `cosmos_database_delete`, you must create a custom Cosmos DB data plane role. See [docs/permissions.md](permissions.md#️-cosmos-db-12-tools) for instructions.
+
 **Automation Script**: Use `scripts/assign-cosmos-data-roles.sh` to assign to all accounts:
 
 ```bash
 ./scripts/assign-cosmos-data-roles.sh $IDENTITY
 ```
+
+### 7. Microsoft Graph Permissions (Entra ID Tools)
+
+Entra ID tools require Microsoft Graph API permissions, not Azure RBAC. See [Authentication Guide](authentication.md#microsoft-graph-permissions-entra-id-tools) for setup instructions.
+
+> **Full permissions reference**: See [docs/permissions.md](permissions.md) for complete RBAC and permissions documentation across all 10 tool families.
 
 ## Using with AI Foundry
 
@@ -338,15 +346,14 @@ agent = project_client.agents.create_version(
 
 **Solution**: 
 1. Enable system-assigned managed identity on the Container App
-2. Assign RBAC roles at subscription level:
+2. Assign RBAC roles at subscription level (least privilege):
    - `Reader` - Required for Resource Graph queries
-   - `Contributor` - For resource management
-   - `Cosmos DB Account Reader Role` - List Cosmos accounts/databases
+   - `Cosmos DB Account Reader Role` - List Cosmos accounts
    - `Cost Management Reader` - Cost tools
-   - `Key Vault Administrator` - Key Vault tools
    - `Storage Blob/Table/Queue Data Contributor` - Storage tools
    - `Monitoring Reader` - Azure Monitor tools
-3. For Cosmos DB data plane access (reading/writing items), assign per account:
+   - `Log Analytics Reader` - Log queries (Monitor + App Insights)
+3. For Cosmos DB data plane access, assign per account:
    ```bash
    az cosmosdb sql role assignment create \
      --account-name <account> \
@@ -355,6 +362,9 @@ agent = project_client.agents.create_version(
      --role-definition-id "00000000-0000-0000-0000-000000000002" \
      --scope "/"
    ```
+4. For Entra ID tools, assign Microsoft Graph permissions (see [authentication.md](authentication.md))
+5. For Azure AI Search, assign roles per search service
+6. See [docs/permissions.md](permissions.md) for complete reference
 
 ## Security Considerations
 

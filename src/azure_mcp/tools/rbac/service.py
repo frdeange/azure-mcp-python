@@ -83,6 +83,10 @@ ALLOWED_GRAPH_PERMISSIONS: set[str] = {
     "Directory.Read.All",
     # Service Principals - Read only
     "ServicePrincipalEndpoint.Read.All",
+    # Role Management - Read only (for entraid_directory_roles, entraid_role_assignments)
+    "RoleManagement.Read.Directory",
+    # Audit Logs - Read only (for entraid_signin_logs, entraid_audit_logs; requires P1/P2)
+    "AuditLog.Read.All",
 }
 
 # Microsoft Graph service principal appId (constant)

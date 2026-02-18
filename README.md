@@ -67,7 +67,37 @@ azure-mcp
 
 ---
 
-## 🛠️ Available Tools (99 Total)
+## � Prerequisites & Permissions
+
+### Authentication
+
+```bash
+# Local development - just login with Azure CLI
+az login
+```
+
+For production deployment (Azure Container Apps), use **Managed Identity**. See [Authentication Guide](docs/authentication.md).
+
+### Required Permissions (Quick Reference)
+
+| Family | Role / Permission | Scope |
+|--------|------------------|-------|
+| All tools | `Reader` | Subscription |
+| Cost Management | `Cost Management Reader` | Subscription |
+| Storage | `Storage Blob/Table/Queue Data Reader` or `Contributor` | Subscription or Account |
+| Monitor | `Monitoring Reader` + `Log Analytics Reader` | Subscription / Workspace |
+| App Insights | `Log Analytics Reader` | Workspace |
+| Cosmos DB (control) | `Cosmos DB Account Reader Role` | Subscription |
+| Cosmos DB (data) | `Built-in Data Contributor` + custom role | Per Account |
+| Azure AI Search | `Search Index Data Reader/Contributor` | Per Search Service |
+| Entra ID | `User.Read.All`, `Group.Read.All`, etc. | Microsoft Graph API |
+| Communication | Connection string based | Per Resource |
+
+> **📖 Full reference**: See [docs/permissions.md](docs/permissions.md) for complete RBAC documentation per tool, least-privilege vs full-access role sets, custom role requirements, and setup scripts.
+
+---
+
+## �🛠️ Available Tools (99 Total)
 
 ### 📊 Summary
 
@@ -410,6 +440,7 @@ pip install azure-mcp[all]
 |----------|-------------|
 | [Adding Tools](docs/adding-tools.md) | Guide for implementing new tools |
 | [Authentication](docs/authentication.md) | Azure authentication setup |
+| [Permissions & RBAC](docs/permissions.md) | Required roles and permissions per tool |
 | [Testing](docs/testing.md) | Testing guide and best practices |
 | [AI Foundry Deployment](docs/ai-foundry-deployment.md) | Deploy to Azure AI Foundry |
 | [Architecture](ARCHITECTURE.md) | System architecture overview |

@@ -16,6 +16,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Pydantic-based options validation
 - AI Foundry compatible JSON schemas
 
+#### Permissions & RBAC Documentation
+- New `docs/permissions.md` — centralized reference for all RBAC roles, Cosmos DB data plane roles, and Microsoft Graph permissions across all 10 tool families (99 tools)
+- Least-privilege role sets (read-only vs full access) with per-tool granularity
+- Custom Cosmos DB "Database Manager" role documentation for database create/delete
+- Updated `docs/ai-foundry-deployment.md` — replaced overly broad roles (`Contributor`, `Key Vault Administrator`) with least-privilege alternatives
+- Updated `README.md` — added Prerequisites & Permissions section with quick reference table
+- Fixed `ALLOWED_GRAPH_PERMISSIONS` whitelist — added `RoleManagement.Read.Directory` and `AuditLog.Read.All` for Entra ID security tools
+- Updated `scripts/assign-cosmos-data-roles.sh` — now creates and assigns Database Manager custom role alongside Data Contributor
+
 #### Resource Graph (1 tool)
 - `resourcegraph_query` - Execute Azure Resource Graph KQL queries
 
