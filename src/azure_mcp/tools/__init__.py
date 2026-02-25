@@ -8,6 +8,7 @@ Each tool is organized by service family.
 
 from azure_mcp.tools import (
     appinsights,
+    bing,
     communication,
     cosmos,
     cost,
@@ -21,6 +22,7 @@ from azure_mcp.tools import (
 
 __all__ = [
     "appinsights",
+    "bing",
     "communication",
     "cosmos",
     "cost",
