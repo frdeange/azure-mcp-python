@@ -537,64 +537,6 @@ async def send_email(self, endpoint: str, ...) -> dict:
     return {"status": result.get("status")}
 ```
 
-### Pattern 4: ARM REST + aiohttp (External key-based APIs)
-
-Some Azure services do **not** support AAD bearer-token authentication for their
-data-plane API (e.g. Bing Search uses `Ocp-Apim-Subscription-Key`). In these cases:
-
-1. **Retrieve the key from ARM** using `DefaultAzureCredential` (management plane).
-2. **Call the data-plane API** with `aiohttp` using the key in a header.
-
-Both steps are fully async. The key is cached to avoid redundant ARM calls.
-
-```python
-# ✅ CORRECT - ARM key retrieval + aiohttp data-plane call
-import asyncio
-import aiohttp
-from datetime import timedelta
-from azure_mcp.core.cache import cache
-
-KEY_CACHE_TTL = timedelta(hours=12)
-
-async def _get_api_key(self, subscription_id: str, rg: str, name: str) -> str:
-    cache_key = f"myservice:key:{subscription_id}:{rg}:{name}"
-
-    async def fetch_key() -> str:
-        credential = self.get_credential()
-        # get_token() is synchronous — wrap with asyncio.to_thread (async-first rule)
-        token = await asyncio.to_thread(
-            credential.get_token,
-            "https://management.azure.com/.default",
-        )
-        url = (
-            f"https://management.azure.com/subscriptions/{subscription_id}"
-            f"/resourceGroups/{rg}/providers/Microsoft.MyService/accounts/{name}"
-            f"/listKeys?api-version=2024-01-01"
-        )
-        async with aiohttp.ClientSession() as session:
-            async with session.post(
-                url, headers={"Authorization": f"Bearer {token.token}"}
-            ) as resp:
-                resp.raise_for_status()
-                data = await resp.json()
-        return data["key1"]
-
-    return await cache.get_or_set(cache_key, fetch_key, KEY_CACHE_TTL)
-
-async def call_data_plane(self, api_key: str, query: str) -> dict:
-    async with aiohttp.ClientSession() as session:
-        async with session.get(
-            "https://api.myservice.com/v1/search",
-            headers={"Ocp-Apim-Subscription-Key": api_key},
-            params={"q": query},
-        ) as resp:
-            resp.raise_for_status()
-            return await resp.json()
-```
-
-> **Real-world example**: `BingService._get_api_key()` in `tools/bing/service.py` uses
-> this pattern to retrieve Bing Search API keys from `Microsoft.Bing/accounts/listKeys`.
-
 ## ❌ Anti-Patterns (Don't Do This)
 
 These patterns cause architectural violations and will fail the `test_architecture_patterns.py` tests.

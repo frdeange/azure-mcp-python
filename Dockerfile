@@ -15,7 +15,7 @@ COPY pyproject.toml README.md ./
 COPY src/ src/
 
 # Install package with all Azure service dependencies (non-editable for production)
-RUN pip install --no-cache-dir ".[cosmos,cost,storage,entra,monitor,rbac,communication,search,bing]" uvicorn starlette
+RUN pip install --no-cache-dir ".[cosmos,cost,storage,entra,monitor,rbac,communication,search]" uvicorn starlette
 
 # Production stage
 FROM python:3.12-slim

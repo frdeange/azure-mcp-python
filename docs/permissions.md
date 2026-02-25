@@ -16,7 +16,6 @@ Complete reference of Azure RBAC roles, Cosmos DB data plane roles, and Microsof
 | RBAC | `Reader` | `Application.Read.All` (for app roles) | Read-only; write ops need RBAC Administrator |
 | Communication | — | — | Connection string based (data plane) |
 | Azure AI Search | `Search Index Data Reader/Contributor` | — | Per search service scope |
-| Bing Search | `Contributor` on `Microsoft.Bing/accounts` resource | — | ARM `listKeys` call to retrieve API key; data plane uses Ocp-Apim-Subscription-Key |
 
 ---
 
@@ -448,55 +447,6 @@ Azure AI Search data plane roles (`Search Index Data Reader/Contributor`) must b
 ### 4. Communication Services Access
 
 Communication Services data plane operations use connection strings, not Azure RBAC tokens. The identity needs enough Azure RBAC access to list resources and retrieve keys.
-
-### 7. Bing Search API Key Retrieval
-
-Bing Search tools do **not** use AAD bearer-token authentication for data-plane calls — the Bing Search API v7 uses a subscription key passed in the `Ocp-Apim-Subscription-Key` HTTP header.
-
-However, the key is **never stored in environment variables**. Instead, the MCP's Managed Identity calls the ARM `listKeys` endpoint for the `Microsoft.Bing/accounts` resource:
-
-```
-POST https://management.azure.com/subscriptions/{sub}/resourceGroups/{rg}
-     /providers/Microsoft.Bing/accounts/{name}/listKeys?api-version=2020-06-10
-Authorization: Bearer {token from DefaultAzureCredential}
-```
-
-This requires the Managed Identity to have the **`Contributor` role** (or a custom role with `Microsoft.Bing/accounts/listKeys/action`) **on the specific Bing resource**:
-
-| Tool | Required Permission | Scope |
-|------|--------------------|---------|
-| `bing_resource_list` | `Reader` | Subscription |
-| `bing_resource_get` | `Reader` | Subscription |
-| `bing_web_search` | `Microsoft.Bing/accounts/listKeys/action` | Bing resource |
-| `bing_news_search` | `Microsoft.Bing/accounts/listKeys/action` | Bing resource |
-| `bing_image_search` | `Microsoft.Bing/accounts/listKeys/action` | Bing resource |
-| `bing_entity_search` | `Microsoft.Bing/accounts/listKeys/action` | Bing resource |
-| `bing_video_search` | `Microsoft.Bing/accounts/listKeys/action` | Bing resource |
-
-**Minimum privilege custom role (recommended):**
-
-```json
-{
-  "Name": "Bing Search Key Reader",
-  "Actions": [
-    "Microsoft.Bing/accounts/read",
-    "Microsoft.Bing/accounts/listKeys/action"
-  ],
-  "AssignableScopes": ["/subscriptions/{your-subscription-id}"]
-}
-```
-
-**Quick setup using built-in Contributor role:**
-
-```bash
-# Assign Contributor on the specific Bing resource to the ACA Managed Identity
-az role assignment create \
-  --assignee "<managed-identity-principal-id>" \
-  --role "Contributor" \
-  --scope "/subscriptions/<sub-id>/resourceGroups/<rg>/providers/Microsoft.Bing/accounts/<bing-name>"
-```
-
-> **Note**: The retrieved key is cached in-process for 12 hours, so the ARM `listKeys` call is made at most once per key per deployment cycle.
 
 ### 5. Log Analytics Workspace Access
 

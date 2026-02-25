@@ -75,13 +75,10 @@ search = [
     "azure-search-documents==11.6.0",
     "aiohttp>=3.8.0",  # Required for async search operations
 ]
-bing = [
-    "aiohttp>=3.8.0",  # Async HTTP client for Bing Search REST API v7 and ARM listKeys
-]
 
 # All Azure services
 all = [
-    "azure-mcp[http,storage,cosmos,keyvault,sql,monitor,cost,entra,communication,search,bing]",
+    "azure-mcp[http,storage,cosmos,keyvault,sql,monitor,cost,entra,communication,search]",
 ]
 
 # Development
